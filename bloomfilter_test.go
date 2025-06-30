@@ -303,12 +303,12 @@ func TestSIMDFunctionality(t *testing.T) {
 		bf.AddString(str)
 	}
 
-	// Test SIMD PopCount
-	regularCount := bf.PopCount()
-	simdCount := bf.PopCountSIMD()
+	// Test PopCount (now uses SIMD automatically)
+	count1 := bf.PopCount()
+	count2 := bf.PopCount()
 
-	if regularCount != simdCount {
-		t.Errorf("SIMD PopCount mismatch: regular=%d, simd=%d", regularCount, simdCount)
+	if count1 != count2 {
+		t.Errorf("PopCount inconsistent: first=%d, second=%d", count1, count2)
 	}
 
 	// Test SIMD operations with another filter
@@ -316,21 +316,21 @@ func TestSIMDFunctionality(t *testing.T) {
 	bf2.AddString("simd6")
 	bf2.AddString("simd7")
 
-	// Test SIMD Union
-	err := bf.UnionSIMD(bf2)
+	// Test Union (now uses SIMD automatically)
+	err := bf.Union(bf2)
 	if err != nil {
-		t.Errorf("SIMD Union failed: %v", err)
+		t.Errorf("Union failed: %v", err)
 	}
 
 	// Verify union worked
 	if !bf.ContainsString("simd6") || !bf.ContainsString("simd7") {
-		t.Error("SIMD Union did not properly merge filters")
+		t.Error("Union did not properly merge filters")
 	}
 
-	// Test SIMD Clear
-	bf.ClearSIMD()
+	// Test Clear (now uses SIMD automatically)
+	bf.Clear()
 	if bf.PopCount() != 0 {
-		t.Error("SIMD Clear did not properly clear the filter")
+		t.Error("Clear did not properly clear the filter")
 	}
 }
 

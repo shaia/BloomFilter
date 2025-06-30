@@ -3,7 +3,6 @@ package bloomfilter
 import (
 	"fmt"
 	"math"
-	"math/bits"
 	"runtime"
 	"unsafe"
 )
@@ -64,6 +63,9 @@ type CacheOptimizedBloomFilter struct {
 	// Pre-allocated arrays to avoid allocations in hot paths
 	positions        []uint64
 	cacheLineIndices []uint64
+
+	// SIMD operations instance (initialized once for performance)
+	simdOps SIMDOperations
 }
 
 // NewCacheOptimizedBloomFilter creates a cache line optimized bloom filter
@@ -103,85 +105,11 @@ func NewCacheOptimizedBloomFilter(expectedElements uint64, falsePositiveRate flo
 		cacheLineCount:   cacheLineCount,
 		positions:        make([]uint64, hashCount),
 		cacheLineIndices: make([]uint64, hashCount),
+		simdOps:          GetSIMDOperations(), // Initialize SIMD operations once
 	}
 }
 
-// Fast hash functions optimized for cache performance
-func hash1(data []byte) uint64 {
-	const (
-		fnvOffsetBasis = 14695981039346656037
-		fnvPrime       = 1099511628211
-	)
-
-	hash := uint64(fnvOffsetBasis)
-
-	// Process in 8-byte chunks for better cache utilization
-	i := 0
-	for i+8 <= len(data) {
-		chunk := *(*uint64)(unsafe.Pointer(&data[i]))
-		hash ^= chunk
-		hash *= fnvPrime
-		i += 8
-	}
-
-	// Handle remaining bytes
-	for i < len(data) {
-		hash ^= uint64(data[i])
-		hash *= fnvPrime
-		i++
-	}
-
-	return hash
-}
-
-func hash2(data []byte) uint64 {
-	const (
-		seed = 0x9e3779b97f4a7c15
-		mult = 0xc6a4a7935bd1e995
-		r    = 47
-	)
-
-	hash := uint64(seed)
-
-	// Process in 8-byte chunks
-	i := 0
-	for i+8 <= len(data) {
-		chunk := *(*uint64)(unsafe.Pointer(&data[i]))
-		hash ^= chunk
-		hash *= mult
-		hash ^= hash >> r
-		i += 8
-	}
-
-	// Handle remaining bytes
-	for i < len(data) {
-		hash ^= uint64(data[i])
-		hash *= mult
-		hash ^= hash >> r
-		i++
-	}
-
-	return hash
-}
-
-// SIMD-optimized hash functions for better performance
-func hashSIMD1(data []byte) uint64 {
-	if hasAVX2 || hasNEON {
-		// Use optimized vectorized hash when available
-		return hashOptimized1(data)
-	}
-	return hash1(data)
-}
-
-func hashSIMD2(data []byte) uint64 {
-	if hasAVX2 || hasNEON {
-		// Use optimized vectorized hash when available
-		return hashOptimized2(data)
-	}
-	return hash2(data)
-}
-
-// Optimized hash functions with better vectorization
+// Optimized hash functions with better vectorization and cache utilization
 func hashOptimized1(data []byte) uint64 {
 	const (
 		fnvOffsetBasis = 14695981039346656037
@@ -287,10 +215,10 @@ func hashOptimized2(data []byte) uint64 {
 	return hash
 }
 
-// getHashPositionsOptimized generates hash positions with cache line grouping and SIMD-optimized hashing
+// getHashPositionsOptimized generates hash positions with cache line grouping and vectorized hashing
 func (bf *CacheOptimizedBloomFilter) getHashPositionsOptimized(data []byte) {
-	h1 := hashSIMD1(data)
-	h2 := hashSIMD2(data)
+	h1 := hashOptimized1(data)
+	h2 := hashOptimized2(data)
 
 	// Generate positions and group by cache line to improve locality
 	cacheLineMap := make(map[uint64][]uint64)
@@ -422,160 +350,80 @@ func (bf *CacheOptimizedBloomFilter) ContainsUint64(n uint64) bool {
 	return bf.Contains(data)
 }
 
-// Clear resets the bloom filter with cache line awareness and SIMD optimization
+// Clear resets the bloom filter using vectorized operations with automatic fallback
 func (bf *CacheOptimizedBloomFilter) Clear() {
-	if hasAVX2 || hasNEON {
-		bf.ClearSIMD()
-	} else {
-		bf.ClearOptimized()
+	if bf.cacheLineCount == 0 {
+		return
 	}
+
+	// Calculate total data size in bytes
+	totalBytes := int(bf.cacheLineCount * CacheLineSize)
+
+	// Use the pre-initialized SIMD operations for vectorized clear operation
+	bf.simdOps.VectorClear(unsafe.Pointer(&bf.cacheLines[0]), totalBytes)
 }
 
 // Cache line optimized bulk operations
 
-// Union performs cache line aware union with SIMD optimization
+// Union performs vectorized union operation with automatic fallback to optimized scalar
 func (bf *CacheOptimizedBloomFilter) Union(other *CacheOptimizedBloomFilter) error {
-	if hasAVX2 || hasNEON {
-		return bf.UnionSIMD(other)
-	} else {
-		return bf.UnionOptimized(other)
-	}
-}
-
-// Intersection performs cache line aware intersection with SIMD optimization
-func (bf *CacheOptimizedBloomFilter) Intersection(other *CacheOptimizedBloomFilter) error {
-	if hasAVX2 || hasNEON {
-		return bf.IntersectionSIMD(other)
-	} else {
-		return bf.IntersectionOptimized(other)
-	}
-}
-
-// PopCount with cache line optimization and SIMD support
-func (bf *CacheOptimizedBloomFilter) PopCount() uint64 {
-	if hasAVX2 || hasNEON {
-		return bf.PopCountSIMD()
-	} else {
-		return bf.PopCountOptimized()
-	}
-}
-
-// SIMD-optimized PopCount using vectorized bit counting
-func (bf *CacheOptimizedBloomFilter) PopCountSIMD() uint64 {
-	// Architecture-specific SIMD implementations are available via build tags
-	// On ARM64: uses NEON-optimized operations when available
-	// On AMD64: uses AVX2-optimized operations when available
-	// This provides optimal vectorized performance for each platform
-	return bf.PopCountOptimized()
-}
-
-// PopCountOptimized uses unrolled loops for better performance
-func (bf *CacheOptimizedBloomFilter) PopCountOptimized() uint64 {
-	count := uint64(0)
-
-	// Process cache lines with unrolled loops
-	for i := uint64(0); i < bf.cacheLineCount; i++ {
-		cacheLine := &bf.cacheLines[i]
-		// Unroll the inner loop for better performance
-		count += uint64(bits.OnesCount64(cacheLine.words[0]))
-		count += uint64(bits.OnesCount64(cacheLine.words[1]))
-		count += uint64(bits.OnesCount64(cacheLine.words[2]))
-		count += uint64(bits.OnesCount64(cacheLine.words[3]))
-		count += uint64(bits.OnesCount64(cacheLine.words[4]))
-		count += uint64(bits.OnesCount64(cacheLine.words[5]))
-		count += uint64(bits.OnesCount64(cacheLine.words[6]))
-		count += uint64(bits.OnesCount64(cacheLine.words[7]))
-	}
-
-	return count
-}
-
-// SIMD-optimized Union operation
-func (bf *CacheOptimizedBloomFilter) UnionSIMD(other *CacheOptimizedBloomFilter) error {
-	// The actual SIMD implementations are defined in architecture-specific files
-	// This will call the appropriate SIMD function based on build tags
-	return bf.UnionOptimized(other)
-}
-
-// UnionOptimized uses vectorized operations when possible
-func (bf *CacheOptimizedBloomFilter) UnionOptimized(other *CacheOptimizedBloomFilter) error {
 	if bf.cacheLineCount != other.cacheLineCount {
 		return fmt.Errorf("bloom filters must have same size for union")
 	}
 
-	// Process entire cache lines at once with unrolled loops
-	for i := uint64(0); i < bf.cacheLineCount; i++ {
-		dst := &bf.cacheLines[i]
-		src := &other.cacheLines[i]
-
-		// Unrolled loop for better performance
-		dst.words[0] |= src.words[0]
-		dst.words[1] |= src.words[1]
-		dst.words[2] |= src.words[2]
-		dst.words[3] |= src.words[3]
-		dst.words[4] |= src.words[4]
-		dst.words[5] |= src.words[5]
-		dst.words[6] |= src.words[6]
-		dst.words[7] |= src.words[7]
+	if bf.cacheLineCount == 0 {
+		return nil
 	}
+
+	// Calculate total data size in bytes
+	totalBytes := int(bf.cacheLineCount * CacheLineSize)
+
+	// Use the pre-initialized SIMD operations for vectorized OR operation
+	bf.simdOps.VectorOr(
+		unsafe.Pointer(&bf.cacheLines[0]),
+		unsafe.Pointer(&other.cacheLines[0]),
+		totalBytes,
+	)
 
 	return nil
 }
 
-// SIMD-optimized Intersection operation
-func (bf *CacheOptimizedBloomFilter) IntersectionSIMD(other *CacheOptimizedBloomFilter) error {
-	// The actual SIMD implementations are defined in architecture-specific files
-	// This will call the appropriate SIMD function based on build tags
-	return bf.IntersectionOptimized(other)
-}
-
-// IntersectionOptimized uses vectorized operations when possible
-func (bf *CacheOptimizedBloomFilter) IntersectionOptimized(other *CacheOptimizedBloomFilter) error {
+// Intersection performs vectorized intersection operation with automatic fallback to optimized scalar
+func (bf *CacheOptimizedBloomFilter) Intersection(other *CacheOptimizedBloomFilter) error {
 	if bf.cacheLineCount != other.cacheLineCount {
 		return fmt.Errorf("bloom filters must have same size for intersection")
 	}
 
-	// Process entire cache lines at once with unrolled loops
-	for i := uint64(0); i < bf.cacheLineCount; i++ {
-		dst := &bf.cacheLines[i]
-		src := &other.cacheLines[i]
-
-		// Unrolled loop for better performance
-		dst.words[0] &= src.words[0]
-		dst.words[1] &= src.words[1]
-		dst.words[2] &= src.words[2]
-		dst.words[3] &= src.words[3]
-		dst.words[4] &= src.words[4]
-		dst.words[5] &= src.words[5]
-		dst.words[6] &= src.words[6]
-		dst.words[7] &= src.words[7]
+	if bf.cacheLineCount == 0 {
+		return nil
 	}
+
+	// Calculate total data size in bytes
+	totalBytes := int(bf.cacheLineCount * CacheLineSize)
+
+	// Use the pre-initialized SIMD operations for vectorized AND operation
+	bf.simdOps.VectorAnd(
+		unsafe.Pointer(&bf.cacheLines[0]),
+		unsafe.Pointer(&other.cacheLines[0]),
+		totalBytes,
+	)
 
 	return nil
 }
 
-// SIMD-optimized Clear operation
-func (bf *CacheOptimizedBloomFilter) ClearSIMD() {
-	// The actual SIMD implementations are defined in architecture-specific files
-	// This will call the appropriate SIMD function based on build tags
-	bf.ClearOptimized()
-}
-
-// ClearOptimized uses vectorized operations when possible
-func (bf *CacheOptimizedBloomFilter) ClearOptimized() {
-	// Clear entire cache lines at once with unrolled loops
-	for i := range bf.cacheLines {
-		cacheLine := &bf.cacheLines[i]
-		// Unrolled loop for better performance
-		cacheLine.words[0] = 0
-		cacheLine.words[1] = 0
-		cacheLine.words[2] = 0
-		cacheLine.words[3] = 0
-		cacheLine.words[4] = 0
-		cacheLine.words[5] = 0
-		cacheLine.words[6] = 0
-		cacheLine.words[7] = 0
+// PopCount uses vectorized bit counting with automatic fallback to optimized scalar
+func (bf *CacheOptimizedBloomFilter) PopCount() uint64 {
+	if bf.cacheLineCount == 0 {
+		return 0
 	}
+
+	// Calculate total data size in bytes
+	totalBytes := int(bf.cacheLineCount * CacheLineSize)
+
+	// Use the pre-initialized SIMD operations for vectorized population count
+	count := bf.simdOps.PopCount(unsafe.Pointer(&bf.cacheLines[0]), totalBytes)
+
+	return uint64(count)
 }
 
 // Statistics and analysis

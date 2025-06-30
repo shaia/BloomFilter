@@ -7,7 +7,28 @@ import (
 	"time"
 )
 
-// BenchmarkCachePerformance runs a benchmark for cache performance analysis
+/*
+Comprehensive Benchmark Suite for SIMD-Optimized Cache-Line Aligned Bloom Filter
+
+This benchmark suite provides detailed performance analysis across multiple dimensions:
+
+1. BenchmarkCachePerformance: Tests cache efficiency and memory scaling across different sizes
+2. BenchmarkInsertion: Measures insertion throughput with memory layout analysis
+3. BenchmarkLookup: Measures lookup throughput with load factor and accuracy metrics
+4. BenchmarkFalsePositives: Tests statistical accuracy of false positive rates
+5. BenchmarkComprehensive: Complete performance profile with throughput and accuracy analysis
+
+Key metrics reported:
+- Performance: insertions_per_sec, lookups_per_sec
+- Memory: MB_mem, KB_mem, cachelines, alignment_offset
+- Accuracy: actual_fpp_percent, estimated_fpp_percent, target_fpp_percent
+- Utilization: load_factor, bits_set
+
+Usage: go test -bench=. -benchmem
+*/
+
+// BenchmarkCachePerformance runs a benchmark for cache performance analysis across different sizes
+// Tests cache line efficiency, memory usage, and performance scaling
 // Usage: go test -bench=BenchmarkCachePerformance
 func BenchmarkCachePerformance(b *testing.B) {
 	sizes := []uint64{10000, 100000, 1000000}
@@ -21,11 +42,11 @@ func BenchmarkCachePerformance(b *testing.B) {
 
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				// Add
+				// Add operations
 				for _, item := range testData {
 					bf.AddString(item)
 				}
-				// Check
+				// Contains operations
 				for _, item := range testData {
 					bf.ContainsString(item)
 				}
@@ -33,15 +54,16 @@ func BenchmarkCachePerformance(b *testing.B) {
 			}
 			b.StopTimer()
 
-			// Report stats as benchmark output
+			// Report cache and memory metrics
 			stats := bf.GetCacheStats()
-			b.ReportMetric(float64(stats.CacheLineCount), "cachelines")
 			b.ReportMetric(float64(stats.MemoryUsage)/1024, "KB_mem")
+			b.ReportMetric(float64(stats.CacheLineCount), "cachelines")
 		})
 	}
 }
 
-// BenchmarkInsertion benchmarks insertion performance
+// BenchmarkInsertion benchmarks insertion performance with SIMD optimization
+// Measures throughput of adding elements to the bloom filter
 func BenchmarkInsertion(b *testing.B) {
 	const numElements = 1000000
 	const fpp = 0.01
@@ -63,15 +85,16 @@ func BenchmarkInsertion(b *testing.B) {
 			bf.Clear()
 		}
 
-		// Report performance metrics
+		// Report memory layout and alignment metrics
 		stats := bf.GetCacheStats()
-		b.ReportMetric(float64(stats.CacheLineCount), "cachelines")
 		b.ReportMetric(float64(stats.MemoryUsage)/(1024*1024), "MB_mem")
 		b.ReportMetric(float64(stats.Alignment), "alignment_offset")
+		b.ReportMetric(float64(stats.CacheLineCount), "cachelines")
 	})
 }
 
-// BenchmarkLookup benchmarks lookup performance
+// BenchmarkLookup benchmarks lookup performance with SIMD optimization
+// Measures throughput of querying elements in the bloom filter
 func BenchmarkLookup(b *testing.B) {
 	const numElements = 1000000
 	const fpp = 0.01
@@ -100,15 +123,16 @@ func BenchmarkLookup(b *testing.B) {
 			}
 		}
 
-		// Report final statistics
+		// Report bloom filter statistics and accuracy metrics
 		finalStats := bf.GetCacheStats()
-		b.ReportMetric(finalStats.LoadFactor, "load_factor")
-		b.ReportMetric(finalStats.EstimatedFPP*100, "estimated_fpp_percent")
 		b.ReportMetric(float64(finalStats.BitsSet), "bits_set")
+		b.ReportMetric(finalStats.EstimatedFPP*100, "estimated_fpp_percent")
+		b.ReportMetric(finalStats.LoadFactor, "load_factor")
 	})
 }
 
-// BenchmarkFalsePositives benchmarks false positive rate testing
+// BenchmarkFalsePositives benchmarks false positive rate accuracy
+// Tests the statistical accuracy of the bloom filter's false positive rate
 func BenchmarkFalsePositives(b *testing.B) {
 	const numElements = 1000000
 	const fpp = 0.01
@@ -135,14 +159,16 @@ func BenchmarkFalsePositives(b *testing.B) {
 			}
 
 			actualFPP := float64(falsePositives) / testNegatives
-			// Report false positive rate
+			// Report false positive rate accuracy metrics
 			b.ReportMetric(actualFPP*100, "actual_fpp_percent")
 			b.ReportMetric(fpp*100, "target_fpp_percent")
 		}
 	})
 }
 
-// BenchmarkComprehensive runs a comprehensive benchmark with detailed reporting
+// BenchmarkComprehensive runs a comprehensive benchmark with detailed performance analysis
+// Measures insertion speed, lookup speed, false positive accuracy, and memory efficiency
+// Provides complete performance profile of the SIMD-optimized bloom filter
 func BenchmarkComprehensive(b *testing.B) {
 	const numElements = 1000000
 	const fpp = 0.01
@@ -150,7 +176,7 @@ func BenchmarkComprehensive(b *testing.B) {
 	b.Run("Comprehensive_Test", func(b *testing.B) {
 		bf := NewCacheOptimizedBloomFilter(numElements, fpp)
 
-		// Display cache line information (reported once)
+		// Display cache line and memory layout information (reported once)
 		stats := bf.GetCacheStats()
 		b.Logf("Cache line size: %d bytes", stats.CacheLineSize)
 		b.Logf("Cache lines used: %d", stats.CacheLineCount)
@@ -165,14 +191,14 @@ func BenchmarkComprehensive(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			// Insertion phase
+			// Insertion performance measurement
 			insertStart := time.Now()
 			for _, item := range testData {
 				bf.AddString(item)
 			}
 			insertTime := time.Since(insertStart)
 
-			// Lookup phase
+			// Lookup performance measurement
 			lookupStart := time.Now()
 			found := 0
 			for _, item := range testData {
@@ -182,7 +208,7 @@ func BenchmarkComprehensive(b *testing.B) {
 			}
 			lookupTime := time.Since(lookupStart)
 
-			// False positive test
+			// False positive accuracy test
 			falsePositives := 0
 			const testNegatives = 10000 // Reduced for benchmark performance
 			for j := 0; j < testNegatives; j++ {
@@ -192,15 +218,16 @@ func BenchmarkComprehensive(b *testing.B) {
 				}
 			}
 
-			// Report metrics
+			// Calculate and report comprehensive performance metrics
 			actualFPP := float64(falsePositives) / testNegatives
 			finalStats := bf.GetCacheStats()
 
-			b.ReportMetric(float64(numElements)/insertTime.Seconds(), "insertions_per_sec")
-			b.ReportMetric(float64(numElements)/lookupTime.Seconds(), "lookups_per_sec")
+			// Performance throughput metrics
 			b.ReportMetric(actualFPP*100, "actual_fpp_percent")
-			b.ReportMetric(finalStats.LoadFactor, "load_factor")
 			b.ReportMetric(finalStats.EstimatedFPP*100, "estimated_fpp_percent")
+			b.ReportMetric(float64(numElements)/insertTime.Seconds(), "insertions_per_sec")
+			b.ReportMetric(finalStats.LoadFactor, "load_factor")
+			b.ReportMetric(float64(numElements)/lookupTime.Seconds(), "lookups_per_sec")
 
 			bf.Clear() // Reset for next iteration
 		}

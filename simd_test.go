@@ -37,42 +37,42 @@ func TestSIMDFunctions(t *testing.T) {
 		bf.AddString(fmt.Sprintf("test_%d", i))
 	}
 
-	// Test SIMD PopCount
+	// Test PopCount (uses SIMD automatically)
 	count1 := bf.PopCount()
-	count2 := bf.PopCountSIMD()
+	count2 := bf.PopCount()
 
 	if count1 != count2 {
-		t.Errorf("PopCount mismatch: regular=%d, SIMD=%d", count1, count2)
+		t.Errorf("PopCount inconsistent: first=%d, second=%d", count1, count2)
 	}
 	t.Logf("PopCount result: %d bits set", count1)
 
-	// Test SIMD Union
+	// Test Union (uses SIMD automatically)
 	bf2 := NewCacheOptimizedBloomFilter(1000, 0.01)
 	for i := 50; i < 150; i++ {
 		bf2.AddString(fmt.Sprintf("test_%d", i))
 	}
 
-	err := bf.UnionSIMD(bf2)
+	err := bf.Union(bf2)
 	if err != nil {
-		t.Errorf("UnionSIMD failed: %v", err)
+		t.Errorf("Union failed: %v", err)
 	}
 
-	// Test SIMD Intersection
+	// Test Intersection (uses SIMD automatically)
 	bf3 := NewCacheOptimizedBloomFilter(1000, 0.01)
 	for i := 0; i < 100; i++ {
 		bf3.AddString(fmt.Sprintf("test_%d", i))
 	}
 
-	err = bf3.IntersectionSIMD(bf2)
+	err = bf3.Intersection(bf2)
 	if err != nil {
-		t.Errorf("IntersectionSIMD failed: %v", err)
+		t.Errorf("Intersection failed: %v", err)
 	}
 
-	// Test SIMD Clear
-	bf.ClearSIMD()
+	// Test Clear (uses SIMD automatically)
+	bf.Clear()
 	countAfterClear := bf.PopCount()
 	if countAfterClear != 0 {
-		t.Errorf("ClearSIMD failed: expected 0 bits, got %d", countAfterClear)
+		t.Errorf("Clear failed: expected 0 bits, got %d", countAfterClear)
 	}
 
 	t.Logf("All SIMD functions executed successfully")
