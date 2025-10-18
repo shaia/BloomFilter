@@ -1,6 +1,6 @@
 //go:build arm64 && !purego
 
-package bloomfilter
+package arm64
 
 import (
 	"unsafe"

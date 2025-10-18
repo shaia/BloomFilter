@@ -1,4 +1,4 @@
-package bloomfilter
+package simd
 
 import "unsafe"
 

@@ -1,22 +1,26 @@
-package bloomfilter
+package simd
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/shaia/go-simd-bloomfilter/internal/simd/arm64"
+)
 
 // NEONOperations implements SIMD operations using ARM NEON
 type NEONOperations struct{}
 
 func (n *NEONOperations) PopCount(data unsafe.Pointer, length int) int {
-	return neonPopCount(data, length)
+	return arm64.PopCount(data, length)
 }
 
 func (n *NEONOperations) VectorOr(dst, src unsafe.Pointer, length int) {
-	neonVectorOr(dst, src, length)
+	arm64.VectorOr(dst, src, length)
 }
 
 func (n *NEONOperations) VectorAnd(dst, src unsafe.Pointer, length int) {
-	neonVectorAnd(dst, src, length)
+	arm64.VectorAnd(dst, src, length)
 }
 
 func (n *NEONOperations) VectorClear(data unsafe.Pointer, length int) {
-	neonVectorClear(data, length)
+	arm64.VectorClear(data, length)
 }
