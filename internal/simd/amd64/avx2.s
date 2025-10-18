@@ -2,15 +2,28 @@
 
 #include "textflag.h"
 
-// hasAVX2Support checks if AVX2 is supported
+// hasAVX2Support checks if AVX2 is supported via CPUID
+// Uses CPUID leaf 7 (Extended Features), subleaf 0
+// Checks bit 5 of EBX which indicates AVX2 support
 // func hasAVX2Support() bool
 TEXT ·hasAVX2Support(SB), NOSPLIT, $0-1
+    // First check if CPUID supports leaf 7
+    MOVQ $0, AX
+    CPUID
+    CMPQ AX, $7
+    JL no_avx2
+
+    // Check for AVX2 support (CPUID.7.0:EBX.AVX2[bit 5])
     MOVQ $7, AX
     MOVQ $0, CX
     CPUID
-    SHRQ $5, BX
-    ANDQ $1, BX
+    SHRQ $5, BX        // Shift bit 5 to bit 0
+    ANDQ $1, BX        // Mask to get just bit 0
     MOVB BX, ret+0(FP)
+    RET
+
+no_avx2:
+    MOVB $0, ret+0(FP)
     RET
 
 // avx2PopCount performs SIMD population count using AVX2
