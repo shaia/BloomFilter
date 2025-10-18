@@ -3,8 +3,9 @@ package bloomfilter
 import (
 	"fmt"
 	"math"
-	"runtime"
 	"unsafe"
+
+	"github.com/shaia/go-simd-bloomfilter/internal/simd"
 )
 
 // CacheOptimizedBloomFilter uses cache line aligned storage
@@ -20,7 +21,7 @@ type CacheOptimizedBloomFilter struct {
 	cacheLineIndices []uint64
 
 	// SIMD operations instance (initialized once for performance)
-	simdOps SIMDOperations
+	simdOps simd.Operations
 }
 
 // CacheStats provides detailed statistics about the bloom filter
@@ -78,7 +79,7 @@ func NewCacheOptimizedBloomFilter(expectedElements uint64, falsePositiveRate flo
 		cacheLineCount:   cacheLineCount,
 		positions:        make([]uint64, hashCount),
 		cacheLineIndices: make([]uint64, hashCount),
-		simdOps:          GetSIMDOperations(), // Initialize SIMD operations once
+		simdOps:          simd.Get(), // Initialize SIMD operations once
 	}
 }
 
@@ -223,43 +224,31 @@ func (bf *CacheOptimizedBloomFilter) GetCacheStats() CacheStats {
 		MemoryUsage:    bf.cacheLineCount * CacheLineSize,
 		Alignment:      alignment,
 		// SIMD capability information
-		HasAVX2:     hasAVX2,
-		HasAVX512:   hasAVX512,
-		HasNEON:     hasNEON,
-		SIMDEnabled: hasAVX2 || hasAVX512 || hasNEON,
+		HasAVX2:     simd.HasAVX2(),
+		HasAVX512:   simd.HasAVX512(),
+		HasNEON:     simd.HasNEON(),
+		SIMDEnabled: simd.HasAny(),
 	}
 }
 
 // HasAVX2 returns true if AVX2 SIMD instructions are available
 func HasAVX2() bool {
-	return hasAVX2
+	return simd.HasAVX2()
 }
 
 // HasAVX512 returns true if AVX512 SIMD instructions are available
 func HasAVX512() bool {
-	return hasAVX512
+	return simd.HasAVX512()
 }
 
 // HasNEON returns true if NEON SIMD instructions are available
 func HasNEON() bool {
-	return hasNEON
+	return simd.HasNEON()
 }
 
 // HasSIMD returns true if any SIMD instructions are available
 func HasSIMD() bool {
-	return hasAVX2 || hasAVX512 || hasNEON
-}
-
-
-// SIMD capabilities detection
-var (
-	hasAVX2   bool
-	hasAVX512 bool
-	hasNEON   bool
-)
-
-func init() {
-	detectSIMDCapabilities()
+	return simd.HasAny()
 }
 
 const (
@@ -279,21 +268,6 @@ const (
 // CacheLine represents a single 64-byte cache line containing 8 uint64 words
 type CacheLine struct {
 	words [WordsPerCacheLine]uint64
-}
-
-// detectSIMDCapabilities detects available SIMD instruction sets
-func detectSIMDCapabilities() {
-	// This is a simplified detection - in production you'd use proper CPU detection
-	switch runtime.GOARCH {
-	case "amd64":
-		// Simplified detection - assume modern Intel/AMD processors have AVX2
-		hasAVX2 = true
-		// AVX512 is less common, set to false for safety
-		hasAVX512 = false
-	case "arm64":
-		// ARM64 has NEON by default
-		hasNEON = true
-	}
 }
 
 // Optimized hash functions with better vectorization and cache utilization
