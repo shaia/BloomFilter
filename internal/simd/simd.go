@@ -3,6 +3,8 @@ package simd
 import (
 	"runtime"
 	"unsafe"
+
+	"github.com/shaia/go-simd-bloomfilter/internal/simd/amd64"
 )
 
 // Operations defines the interface for SIMD operations
@@ -58,17 +60,22 @@ func init() {
 	detectCapabilities()
 }
 
-// detectCapabilities detects available SIMD instruction sets
+// detectCapabilities detects available SIMD instruction sets using runtime CPU feature detection
 func detectCapabilities() {
-	// This is a simplified detection - in production you'd use proper CPU detection
 	switch runtime.GOARCH {
 	case "amd64":
-		// Simplified detection - assume modern Intel/AMD processors have AVX2
-		hasAVX2 = true
-		// AVX512 is less common, set to false for safety
+		// Use CPUID-based detection for AVX2 (implemented in assembly)
+		hasAVX2 = amd64.HasAVX2()
+		// AVX512 detection would go here (not yet implemented)
 		hasAVX512 = false
 	case "arm64":
-		// ARM64 has NEON by default
+		// ARM64 has NEON by default as part of the ARMv8 specification
+		// All ARM64 CPUs are required to support NEON
 		hasNEON = true
+	default:
+		// No SIMD support on other architectures, will use optimized scalar fallback
+		hasAVX2 = false
+		hasAVX512 = false
+		hasNEON = false
 	}
 }
