@@ -1,3 +1,29 @@
+## Release v0.1.0
+
+**Type:** patch
+
+### Changes
+
+- Prepare release v0.1.0 (b3824da)
+- Add PR-based versioning and release workflows (ed2e579)
+- Implement proper CPUID-based AVX2 detection (e0e3ed0)
+- restructure of the code (acd0e2a)
+- fixing gh workflow (c98cfba)
+- restructure of the code (b22dc16)
+- changed structure of bloom filter (fc7489d)
+- streamline the code change to structure of the code to be simpler (06def17)
+- fixing go version (229f996)
+- fix small lint error (0897603)
+- Create go.yml (9e6542e)
+- first commit (7a98ac5)
+
+---
+
+**Release Checklist:**
+- [ ] All tests passing
+- [ ] Documentation updated
+- [ ] CHANGELOG updated (if applicable)
+- [ ] Breaking changes documented (if any)
 # Changelog
 
 All notable changes to this project will be documented in this file.
