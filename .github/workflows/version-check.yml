@@ -5,6 +5,11 @@ on:
     branches: [ "main" ]
     types: [opened, synchronize, reopened]
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   check-version:
     runs-on: ubuntu-latest
@@ -41,11 +46,17 @@ jobs:
       - name: Comment on PR
         if: steps.check.outputs.needs_version == 'maybe'
         uses: actions/github-script@v7
+        continue-on-error: true
         with:
           script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '📋 **Version Check**: This PR contains changes. Consider creating a new version tag after merging.\n\n**Semantic Versioning Guide:**\n- `vX.Y.Z` - Patch: Bug fixes, performance improvements\n- `vX.Y.0` - Minor: New features, backward compatible\n- `vX.0.0` - Major: Breaking changes\n\nTo create a release after merging:\n```bash\ngit tag v0.1.0\ngit push origin v0.1.0\n```'
-            })
+            try {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: '📋 **Version Check**: This PR contains changes. Consider creating a new version tag after merging.\n\n**Semantic Versioning Guide:**\n- `vX.Y.Z` - Patch: Bug fixes, performance improvements\n- `vX.Y.0` - Minor: New features, backward compatible\n- `vX.0.0` - Major: Breaking changes\n\nTo create a release after merging:\n```bash\ngit tag v0.1.0\ngit push origin v0.1.0\n```'
+              });
+            } catch (error) {
+              console.log(`⚠️  Could not comment on PR: ${error.message}`);
+              console.log('This may be due to missing permissions. Check Settings → Actions → General → Workflow permissions');
+            }
