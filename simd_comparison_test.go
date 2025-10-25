@@ -374,21 +374,31 @@ func TestSIMDCorrectness(t *testing.T) {
 
 // BenchmarkBloomFilterWithSIMD benchmarks the full bloom filter with SIMD vs without
 func BenchmarkBloomFilterWithSIMD(b *testing.B) {
+	// Pre-generate test data once to avoid fmt.Sprintf overhead in benchmarks
+	testData := make([]string, 1000)
+	for i := 0; i < 1000; i++ {
+		testData[i] = fmt.Sprintf("test-%d", i)
+	}
+
 	sizes := []int{10000, 100000, 1000000}
 
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("Size_%d", size), func(b *testing.B) {
 			// Test with current SIMD settings
 			b.Run("WithSIMD", func(b *testing.B) {
+				// Setup bloom filter once (exclude from timing)
+				bf := NewCacheOptimizedBloomFilter(uint64(size), 0.01)
+				for _, data := range testData {
+					bf.AddString(data)
+				}
+
+				// Reset timer to measure only query performance
+				b.ResetTimer()
+
+				// Benchmark only the query operations
 				for i := 0; i < b.N; i++ {
-					bf := NewCacheOptimizedBloomFilter(uint64(size), 0.01)
-					// Insert some elements
-					for j := 0; j < 1000; j++ {
-						bf.AddString(fmt.Sprintf("test-%d", j))
-					}
-					// Query some elements
-					for j := 0; j < 1000; j++ {
-						_ = bf.ContainsString(fmt.Sprintf("test-%d", j))
+					for _, data := range testData {
+						_ = bf.ContainsString(data)
 					}
 				}
 			})

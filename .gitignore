@@ -38,8 +38,11 @@ coverage.out
 coverage_pure.html
 coverage_pure.out
 
-# Profiling files
-*.prof
+# Profiling files (keep results/ folder contents tracked)
+/*.prof
+/profile_*.txt
+/benchmark_results*.txt
+/simd_profile.txt
 
 # Benchmark files
 *_bench.txt
