@@ -1,0 +1,39 @@
+File: go-simd-bloomfilter.test.exe
+Build ID: C:\Users\shaia\AppData\Local\Temp\go-build2158834176\b001\go-simd-bloomfilter.test.exe2025-10-18 19:08:40.1884351 +0300 IDT
+Type: cpu
+Time: Oct 18, 2025 at 7:08pm (IDT)
+Duration: 14.31s, Total samples = 15.99s (111.74%)
+Showing nodes accounting for 13.80s, 86.30% of 15.99s total
+Dropped 165 nodes (cum <= 0.08s)
+Showing top 30 nodes out of 91
+      flat  flat%   sum%        cum   cum%
+     2.01s 12.57% 12.57%      3.03s 18.95%  runtime.mapassign_fast64
+     1.95s 12.20% 24.77%      3.76s 23.51%  runtime.mallocgc
+     1.30s  8.13% 32.90%      1.30s  8.13%  runtime.stdcall2
+     1.29s  8.07% 40.96%      8.50s 53.16%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).getBitCacheOptimized
+     1.11s  6.94% 47.90%      5.51s 34.46%  runtime.growslice
+     0.90s  5.63% 53.53%      1.27s  7.94%  runtime.mapiternext
+     0.71s  4.44% 57.97%      4.38s 27.39%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).getHashPositionsOptimized
+     0.64s  4.00% 61.98%      0.64s  4.00%  runtime.nextFreeFast (inline)
+     0.45s  2.81% 64.79%      0.45s  2.81%  runtime.memhash64
+     0.39s  2.44% 67.23%      0.39s  2.44%  runtime.add (inline)
+     0.35s  2.19% 69.42%      0.35s  2.19%  runtime.stdcall1
+     0.34s  2.13% 71.54%      0.35s  2.19%  runtime.roundupsize (inline)
+     0.21s  1.31% 72.86%      0.29s  1.81%  runtime.deductAssistCredit
+     0.19s  1.19% 74.05%      0.31s  1.94%  runtime.findObject
+     0.19s  1.19% 75.23%      0.52s  3.25%  runtime.scanobject
+     0.18s  1.13% 76.36%      0.75s  4.69%  runtime.mapiterinit
+     0.18s  1.13% 77.49%      0.18s  1.13%  runtime.memmove
+     0.17s  1.06% 78.55%      0.17s  1.06%  runtime.releasem (inline)
+     0.14s  0.88% 79.42%      0.14s  0.88%  internal/chacha8rand.block
+     0.14s  0.88% 80.30%      0.14s  0.88%  runtime.typePointers.next
+     0.13s  0.81% 81.11%      0.36s  2.25%  runtime.rand
+     0.11s  0.69% 81.80%      0.11s  0.69%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).prefetchCacheLines
+     0.11s  0.69% 82.49%      0.11s  0.69%  runtime.getMCache (inline)
+     0.11s  0.69% 83.18%      0.11s  0.69%  runtime.memclrNoHeapPointers
+     0.10s  0.63% 83.80%      0.10s  0.63%  runtime.isEmpty (inline)
+     0.09s  0.56% 84.37%      0.09s  0.56%  runtime.(*mspan).base (inline)
+     0.09s  0.56% 84.93%      0.09s  0.56%  runtime.procyield
+     0.08s   0.5% 85.43%      0.08s   0.5%  runtime.bucketShift (inline)
+     0.08s   0.5% 85.93%      0.10s  0.63%  runtime.spanOf (inline)
+     0.06s  0.38% 86.30%      0.39s  2.44%  gcWriteBarrier

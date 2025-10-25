@@ -1,0 +1,69 @@
+goos: windows
+goarch: amd64
+pkg: github.com/shaia/go-simd-bloomfilter
+cpu: 13th Gen Intel(R) Core(TM) i9-13980HX
+BenchmarkCachePerformance/Size_10000-32         	    1082	   1162405 ns/op	        11.75 KB_mem	       188.0 cachelines	  483659 B/op	   29928 allocs/op
+BenchmarkCachePerformance/Size_100000-32        	    1045	   1120692 ns/op	       117.1 KB_mem	      1873 cachelines	  480289 B/op	   29994 allocs/op
+BenchmarkCachePerformance/Size_1000000-32       	    1015	   1169934 ns/op	      1170 KB_mem	     18721 cachelines	  480002 B/op	   30000 allocs/op
+BenchmarkInsertion/String_Insertion-32          	       3	 458963500 ns/op	         1.143 MB_mem	         0 alignment_offset	     18721 cachelines	144019610 B/op	11999978 allocs/op
+BenchmarkLookup/String_Lookup-32                	       2	 674939150 ns/op	   4459744 bits_set	         1.015 estimated_fpp_percent	         0.4653 load_factor	336020992 B/op	17999270 allocs/op
+BenchmarkFalsePositives/False_Positive_Rate-32  	      14	  74212043 ns/op	         0.9660 actual_fpp_percent	         1.000 target_fpp_percent	36882309 B/op	 1999741 allocs/op
+BenchmarkComprehensive/Comprehensive_Test-32    	       1	1158476900 ns/op	         1.210 actual_fpp_percent	         1.014 estimated_fpp_percent	   2213163 insertions_per_sec	         0.4652 load_factor	   1429906 lookups_per_sec	483722760 B/op	30199007 allocs/op
+--- BENCH: BenchmarkComprehensive/Comprehensive_Test-32
+    benchmark_test.go:181: Cache line size: 64 bytes
+    benchmark_test.go:182: Cache lines used: 18721
+    benchmark_test.go:183: Memory alignment: 0 bytes offset
+    benchmark_test.go:184: Total memory: 1198144 bytes (1.14 MB)
+BenchmarkSIMDvsScalar/PopCount_Size_64/SIMD-32  	291334898	         3.875 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/PopCount_Size_64/Fallback-32         	141020120	         8.640 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorOr_Size_64/SIMD-32             	345294526	         3.549 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorOr_Size_64/Fallback-32         	378165481	         3.309 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorAnd_Size_64/SIMD-32            	299956956	         3.938 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorAnd_Size_64/Fallback-32        	340058365	         3.418 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorClear_Size_64/SIMD-32          	345018932	         3.530 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorClear_Size_64/Fallback-32      	572182216	        20.00 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/PopCount_Size_256/SIMD-32            	22590913	        58.62 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/PopCount_Size_256/Fallback-32        	 5434447	       212.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorOr_Size_256/SIMD-32            	166808494	         6.764 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorOr_Size_256/Fallback-32        	91283212	        15.08 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorAnd_Size_256/SIMD-32           	210992497	         5.686 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorAnd_Size_256/Fallback-32       	71047957	        16.40 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorClear_Size_256/SIMD-32         	224276217	         5.369 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorClear_Size_256/Fallback-32     	76658212	        14.37 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/PopCount_Size_1024/SIMD-32           	34110676	        40.06 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/PopCount_Size_1024/Fallback-32       	 9941122	       126.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorOr_Size_1024/SIMD-32           	75992172	        17.18 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorOr_Size_1024/Fallback-32       	31784964	        40.70 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorAnd_Size_1024/SIMD-32          	100000000	        11.34 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorAnd_Size_1024/Fallback-32      	32403880	        39.77 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorClear_Size_1024/SIMD-32        	127309796	         9.430 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorClear_Size_1024/Fallback-32    	34724030	        35.64 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/PopCount_Size_4096/SIMD-32           	 7236308	       159.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/PopCount_Size_4096/Fallback-32       	 2503572	       490.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorOr_Size_4096/SIMD-32           	23488698	        51.60 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorOr_Size_4096/Fallback-32       	 8762596	       131.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorAnd_Size_4096/SIMD-32          	27519716	        46.43 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorAnd_Size_4096/Fallback-32      	 8593279	       129.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorClear_Size_4096/SIMD-32        	34872265	        33.63 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorClear_Size_4096/Fallback-32    	11098388	       102.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/PopCount_Size_16384/SIMD-32          	 1817626	       669.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/PopCount_Size_16384/Fallback-32      	  571202	      1982 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorOr_Size_16384/SIMD-32          	 7493512	       167.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorOr_Size_16384/Fallback-32      	 2343630	       508.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorAnd_Size_16384/SIMD-32         	 7706826	       158.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorAnd_Size_16384/Fallback-32     	 2360206	       519.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorClear_Size_16384/SIMD-32       	13240999	        95.26 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorClear_Size_16384/Fallback-32   	 3606949	       333.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/PopCount_Size_65536/SIMD-32          	  427401	      2642 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/PopCount_Size_65536/Fallback-32      	  163333	      7850 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorOr_Size_65536/SIMD-32          	 1000000	      1151 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorOr_Size_65536/Fallback-32      	  487951	      2526 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorAnd_Size_65536/SIMD-32         	 1000000	      1116 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorAnd_Size_65536/Fallback-32     	  459705	      2543 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorClear_Size_65536/SIMD-32       	 1471414	       862.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSIMDvsScalar/VectorClear_Size_65536/Fallback-32   	  966789	      1205 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomFilterWithSIMD/Size_10000/WithSIMD-32        	    1924	    650865 ns/op	  337537 B/op	   17946 allocs/op
+BenchmarkBloomFilterWithSIMD/Size_100000/WithSIMD-32       	    1980	    639588 ns/op	  336329 B/op	   17989 allocs/op
+BenchmarkBloomFilterWithSIMD/Size_1000000/WithSIMD-32      	    1861	    673740 ns/op	  336001 B/op	   18000 allocs/op
+PASS
+ok  	github.com/shaia/go-simd-bloomfilter	96.766s

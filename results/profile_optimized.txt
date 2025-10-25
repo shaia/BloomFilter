@@ -1,0 +1,29 @@
+File: go-simd-bloomfilter.test.exe
+Build ID: C:\Users\shaia\AppData\Local\Temp\go-build2590473042\b001\go-simd-bloomfilter.test.exe2025-10-18 18:23:05.9957348 +0300 IDT
+Type: cpu
+Time: Oct 18, 2025 at 6:23pm (IDT)
+Duration: 7.25s, Total samples = 7.91s (109.16%)
+Showing nodes accounting for 6.35s, 80.28% of 7.91s total
+Dropped 126 nodes (cum <= 0.04s)
+Showing top 20 nodes out of 97
+      flat  flat%   sum%        cum   cum%
+     0.87s 11.00% 11.00%      1.63s 20.61%  runtime.mapassign_fast64
+     0.65s  8.22% 19.22%      0.90s 11.38%  runtime.mapiternext
+     0.63s  7.96% 27.18%      1.53s 19.34%  runtime.mallocgc
+     0.63s  7.96% 35.15%      0.63s  7.96%  runtime.stdcall2
+     0.51s  6.45% 41.59%      3.54s 44.75%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).getBitCacheOptimized
+     0.51s  6.45% 48.04%      2.44s 30.85%  runtime.growslice
+     0.39s  4.93% 52.97%      0.39s  4.93%  runtime.memhash64
+     0.30s  3.79% 56.76%      2.80s 35.40%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).getHashPositionsOptimized
+     0.30s  3.79% 60.56%      0.30s  3.79%  runtime.nextFreeFast (inline)
+     0.28s  3.54% 64.10%      0.28s  3.54%  runtime.add (inline)
+     0.26s  3.29% 67.38%      0.27s  3.41%  runtime.roundupsize (inline)
+     0.16s  2.02% 69.41%      0.16s  2.02%  runtime.stdcall1
+     0.15s  1.90% 71.30%      0.57s  7.21%  runtime.mapiterinit
+     0.14s  1.77% 73.07%      0.14s  1.77%  internal/chacha8rand.block
+     0.14s  1.77% 74.84%      0.17s  2.15%  runtime.deductAssistCredit
+     0.12s  1.52% 76.36%      0.12s  1.52%  runtime.isEmpty (inline)
+     0.08s  1.01% 77.37%      6.55s 82.81%  github.com/shaia/go-simd-bloomfilter.BenchmarkBloomFilterWithSIMD.func1.1
+     0.08s  1.01% 78.38%      0.08s  1.01%  runtime.procyield
+     0.08s  1.01% 79.39%      0.24s  3.03%  runtime.rand
+     0.07s  0.88% 80.28%      0.07s  0.88%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).prefetchCacheLines (inline)

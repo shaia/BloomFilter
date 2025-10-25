@@ -1,0 +1,39 @@
+File: go-simd-bloomfilter.test.exe
+Build ID: C:\Users\shaia\AppData\Local\Temp\go-build359497168\b001\go-simd-bloomfilter.test.exe2025-10-25 16:00:06.7257259 +0300 IDT
+Type: cpu
+Time: Oct 25, 2025 at 4:00pm (IDT)
+Duration: 10.02s, Total samples = 9.90s (98.79%)
+Showing nodes accounting for 9.36s, 94.55% of 9.90s total
+Dropped 121 nodes (cum <= 0.05s)
+Showing top 30 nodes out of 44
+      flat  flat%   sum%        cum   cum%
+     3.58s 36.16% 36.16%      4.81s 48.59%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).getHashPositionsOptimized
+     3.08s 31.11% 67.27%      4.13s 41.72%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).getBitCacheOptimized
+     0.47s  4.75% 72.02%      0.67s  6.77%  runtime.mapassign_fast64
+     0.38s  3.84% 75.86%      0.38s  3.84%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).prefetchCacheLines (inline)
+     0.26s  2.63% 78.48%      0.54s  5.45%  runtime.mallocgc
+     0.25s  2.53% 81.01%      0.26s  2.63%  runtime.mapaccess2_fast64
+     0.19s  1.92% 82.93%      0.19s  1.92%  github.com/shaia/go-simd-bloomfilter.hashOptimized2
+     0.18s  1.82% 84.75%      0.18s  1.82%  runtime.stdcall2
+     0.17s  1.72% 86.46%      0.17s  1.72%  github.com/shaia/go-simd-bloomfilter.hashOptimized1
+     0.15s  1.52% 87.98%      0.70s  7.07%  runtime.growslice
+     0.10s  1.01% 88.99%      0.10s  1.01%  runtime.memhash64
+     0.08s  0.81% 89.80%      9.40s 94.95%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).Contains
+     0.07s  0.71% 90.51%      0.07s  0.71%  runtime.add (inline)
+     0.06s  0.61% 91.11%      0.08s  0.81%  runtime.deductAssistCredit
+     0.06s  0.61% 91.72%      0.06s  0.61%  runtime.nextFreeFast (inline)
+     0.05s  0.51% 92.22%      9.52s 96.16%  github.com/shaia/go-simd-bloomfilter.BenchmarkBloomFilterWithSIMD.func1.1
+     0.05s  0.51% 92.73%      0.19s  1.92%  runtime.mapclear
+     0.05s  0.51% 93.23%      0.05s  0.51%  runtime.stdcall1
+     0.04s   0.4% 93.64%      9.44s 95.35%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).ContainsString (inline)
+     0.04s   0.4% 94.04%      0.06s  0.61%  runtime.mapaccess1_fast64
+     0.02s   0.2% 94.24%      0.07s  0.71%  runtime.makeBucketArray
+     0.01s   0.1% 94.34%      0.05s  0.51%  runtime.findRunnable
+     0.01s   0.1% 94.44%      0.08s  0.81%  runtime.goschedImpl
+     0.01s   0.1% 94.55%      0.05s  0.51%  runtime.memclrHasPointers
+         0     0% 94.55%      0.10s  1.01%  runtime.(*gcControllerState).enlistWorker
+         0     0% 94.55%      0.10s  1.01%  runtime.(*gcWork).balance
+         0     0% 94.55%      0.13s  1.31%  runtime.gcBgMarkWorker.func2
+         0     0% 94.55%      0.13s  1.31%  runtime.gcDrain
+         0     0% 94.55%      0.13s  1.31%  runtime.gcDrainMarkWorkerDedicated (inline)
+         0     0% 94.55%      0.06s  0.61%  runtime.gopreempt_m
