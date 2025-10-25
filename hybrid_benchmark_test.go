@@ -23,10 +23,6 @@ func BenchmarkHybridModes(b *testing.B) {
 	for _, bm := range benchmarks {
 		b.Run(bm.name+"_Add", func(b *testing.B) {
 			bf := NewCacheOptimizedBloomFilter(bm.elements, bm.fpr)
-			mode := "ARRAY"
-			if !bf.useArrayMode {
-				mode = "MAP"
-			}
 
 			data := make([]byte, 8)
 			b.ResetTimer()
@@ -40,16 +36,10 @@ func BenchmarkHybridModes(b *testing.B) {
 			b.ReportMetric(float64(bf.cacheLineCount), "cache_lines")
 			b.ReportMetric(float64(bf.bitCount)/8/1024/1024, "MB")
 			b.SetBytes(8)
-
-			mode = mode // prevent unused warning
 		})
 
 		b.Run(bm.name+"_Contains", func(b *testing.B) {
 			bf := NewCacheOptimizedBloomFilter(bm.elements, bm.fpr)
-			mode := "ARRAY"
-			if !bf.useArrayMode {
-				mode = "MAP"
-			}
 
 			// Pre-populate with some data
 			data := make([]byte, 8)
@@ -69,8 +59,7 @@ func BenchmarkHybridModes(b *testing.B) {
 			b.ReportMetric(float64(bf.cacheLineCount), "cache_lines")
 			b.SetBytes(8)
 
-			mode = mode // prevent unused warning
-		})
+			})
 	}
 }
 
@@ -116,10 +105,6 @@ func BenchmarkHybridThroughput(b *testing.B) {
 		b.Run(cfg.name, func(b *testing.B) {
 			bf := NewCacheOptimizedBloomFilter(cfg.elements, cfg.fpr)
 
-			mode := "ARRAY"
-			if !bf.useArrayMode {
-				mode = "MAP"
-			}
 
 			b.ResetTimer()
 			b.ReportAllocs()
@@ -137,10 +122,8 @@ func BenchmarkHybridThroughput(b *testing.B) {
 
 			opsPerSec := float64(b.N*cfg.ops) / b.Elapsed().Seconds()
 			b.ReportMetric(opsPerSec/1000000, "Mops/sec")
-			b.ReportMetric(float64(len(mode)), "mode_len") // Hack to show mode in output
 
-			mode = mode // prevent unused
-		})
+			})
 	}
 }
 
@@ -165,10 +148,6 @@ func BenchmarkHybridCrossoverPoint(b *testing.B) {
 		b.Run(name, func(b *testing.B) {
 			bf := NewCacheOptimizedBloomFilter(size, 0.01)
 
-			mode := "ARRAY"
-			if !bf.useArrayMode {
-				mode = "MAP"
-			}
 
 			b.Logf("Mode: %s, Cache lines: %d, Threshold: %d",
 				mode, bf.cacheLineCount, ArrayModeThreshold)
