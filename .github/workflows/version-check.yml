@@ -1,0 +1,51 @@
+name: Version Check
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if version tag is needed
+        id: check
+        run: |
+          # Get the latest tag
+          LATEST_TAG=$(git tag --sort=-version:refname | head -n 1)
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No tags found yet. First release will be needed."
+            echo "needs_version=true" >> $GITHUB_OUTPUT
+          else
+            echo "Latest version: $LATEST_TAG"
+
+            # Check if there are changes since last tag
+            CHANGES=$(git log ${LATEST_TAG}..HEAD --oneline | wc -l)
+
+            if [ $CHANGES -gt 0 ]; then
+              echo "Changes detected since last tag. Consider creating a new version."
+              echo "needs_version=maybe" >> $GITHUB_OUTPUT
+            else
+              echo "No changes since last tag."
+              echo "needs_version=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Comment on PR
+        if: steps.check.outputs.needs_version == 'maybe'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '📋 **Version Check**: This PR contains changes. Consider creating a new version tag after merging.\n\n**Semantic Versioning Guide:**\n- `vX.Y.Z` - Patch: Bug fixes, performance improvements\n- `vX.Y.0` - Minor: New features, backward compatible\n- `vX.0.0` - Major: Breaking changes\n\nTo create a release after merging:\n```bash\ngit tag v0.1.0\ngit push origin v0.1.0\n```'
+            })

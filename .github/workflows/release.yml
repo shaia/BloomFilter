@@ -1,0 +1,142 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  # Verify tag was created from an approved PR merged to main
+  verify-approval:
+    runs-on: ubuntu-latest
+    outputs:
+      approved: ${{ steps.check.outputs.approved }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is on main branch
+        id: check
+        run: |
+          # Check if the tag points to a commit that's on main
+          TAG_COMMIT=$(git rev-list -n 1 ${{ github.ref }})
+
+          # Check if this commit is on main
+          git fetch origin main
+          if git merge-base --is-ancestor $TAG_COMMIT origin/main; then
+            echo "✅ Tag is on main branch"
+            echo "approved=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Tag is not on main branch. Tags must be created from main after PR approval."
+            echo "approved=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Find associated PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commit = context.sha;
+
+            // Find PRs that include this commit
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: commit
+            });
+
+            if (prs.length === 0) {
+              console.log('⚠️  No PR found for this commit. This may be a direct commit to main.');
+              return;
+            }
+
+            const pr = prs[0];
+            console.log(`Found PR #${pr.number}: ${pr.title}`);
+
+            // Check if PR was approved
+            const { data: reviews } = await github.rest.pulls.listReviews({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_request_number: pr.number
+            });
+
+            const approvals = reviews.filter(review => review.state === 'APPROVED');
+
+            if (approvals.length > 0) {
+              console.log(`✅ PR was approved by: ${approvals.map(r => r.user.login).join(', ')}`);
+            } else {
+              console.log('⚠️  No approvals found for this PR');
+            }
+
+  release:
+    needs: verify-approval
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23.x'
+
+      - name: Run tests
+        run: |
+          go test -v ./...
+          go test -v -run=TestSIMDCorrectness
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the previous tag
+          PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${{ steps.version.outputs.TAG }}$" | head -n 1)
+
+          if [ -z "$PREV_TAG" ]; then
+            # First release, get all commits
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          else
+            # Get commits since previous tag
+            CHANGELOG=$(git log ${PREV_TAG}..${{ steps.version.outputs.TAG }} --pretty=format:"- %s (%h)" --no-merges)
+          fi
+
+          # Write to file for multiline output
+          echo "$CHANGELOG" > changelog.txt
+
+          # Also create a summary
+          echo "## Changes" > release_notes.md
+          echo "" >> release_notes.md
+          echo "$CHANGELOG" >> release_notes.md
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.TAG }}
+          release_name: Release ${{ steps.version.outputs.TAG }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+
+      - name: Verify module proxy update
+        run: |
+          echo "Waiting for module proxy to update..."
+          sleep 10
+          curl -f "https://proxy.golang.org/github.com/shaia/go-simd-bloomfilter/@v/${{ steps.version.outputs.TAG }}.info" || echo "Module not yet available on proxy"

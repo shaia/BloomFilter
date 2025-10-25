@@ -1,0 +1,168 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 0.1.0, 1.0.0)'
+        required: true
+        type: string
+      release_type:
+        description: 'Type of release'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate version format
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Invalid version format. Use semantic versioning (e.g., 0.1.0)"
+            exit 1
+          fi
+          echo "✅ Version format valid: v$VERSION"
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23.x'
+
+      - name: Run tests
+        run: |
+          echo "Running tests to ensure code is ready for release..."
+          go test -v ./...
+          go test -v -run=TestSIMDCorrectness
+
+      - name: Build
+        run: |
+          echo "Building to ensure no build errors..."
+          go build -v ./...
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          VERSION="v${{ github.event.inputs.version }}"
+          PREV_TAG=$(git tag --sort=-version:refname | head -n 1)
+
+          echo "Generating changelog for $VERSION..."
+
+          if [ -z "$PREV_TAG" ]; then
+            echo "📝 First release"
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges | head -n 20)
+          else
+            echo "📝 Changes since $PREV_TAG"
+            CHANGELOG=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+
+          # Save to file
+          {
+            echo "## Release $VERSION"
+            echo ""
+            echo "**Type:** ${{ github.event.inputs.release_type }}"
+            echo ""
+            echo "### Changes"
+            echo ""
+            echo "$CHANGELOG"
+            echo ""
+            echo "---"
+            echo ""
+            echo "**Release Checklist:**"
+            echo "- [ ] All tests passing"
+            echo "- [ ] Documentation updated"
+            echo "- [ ] CHANGELOG updated (if applicable)"
+            echo "- [ ] Breaking changes documented (if any)"
+          } > release_notes.md
+
+          cat release_notes.md
+
+      - name: Create release preparation branch
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          BRANCH_NAME="release/v$VERSION"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH_NAME"
+
+          # Create or update CHANGELOG.md
+          if [ -f CHANGELOG.md ]; then
+            # Prepend to existing changelog
+            cat release_notes.md CHANGELOG.md > CHANGELOG.tmp
+            mv CHANGELOG.tmp CHANGELOG.md
+          else
+            # Create new changelog
+            cp release_notes.md CHANGELOG.md
+          fi
+
+          git add CHANGELOG.md
+          git commit -m "Prepare release v$VERSION" || echo "No changes to commit"
+
+          git push origin "$BRANCH_NAME"
+
+      - name: Create Pull Request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = 'v${{ github.event.inputs.version }}';
+            const releaseType = '${{ github.event.inputs.release_type }}';
+            const branchName = `release/${version}`;
+
+            const fs = require('fs');
+            const releaseNotes = fs.readFileSync('release_notes.md', 'utf8');
+
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Release ${version}`,
+              head: branchName,
+              base: 'main',
+              body: `## 🚀 Prepare Release ${version}
+
+            ${releaseNotes}
+
+            ---
+
+            ### Next Steps
+
+            1. **Review** the changes and changelog
+            2. **Approve** this PR if everything looks good
+            3. **Merge** this PR to main
+            4. **Tag** the merge commit with ${version}:
+               \`\`\`bash
+               git checkout main
+               git pull origin main
+               git tag ${version}
+               git push origin ${version}
+               \`\`\`
+            5. The release workflow will automatically create a GitHub release
+
+            **Note:** This is a **${releaseType}** release.
+            `
+            });
+
+            console.log(`✅ Created PR #${pr.number}: ${pr.html_url}`);
+
+            // Add labels
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: ['release', releaseType]
+            }).catch(err => console.log('Could not add labels:', err.message));
