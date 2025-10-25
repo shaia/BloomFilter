@@ -40,38 +40,44 @@ jobs:
 
       - name: Find associated PR
         uses: actions/github-script@v7
+        continue-on-error: true
         with:
           script: |
             const commit = context.sha;
 
-            // Find PRs that include this commit
-            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: commit
-            });
+            try {
+              // Find PRs that include this commit
+              const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: commit
+              });
 
-            if (prs.length === 0) {
-              console.log('⚠️  No PR found for this commit. This may be a direct commit to main.');
-              return;
-            }
+              if (prs.length === 0) {
+                console.log('⚠️  No PR found for this commit. This may be a direct commit to main.');
+                return;
+              }
 
-            const pr = prs[0];
-            console.log(`Found PR #${pr.number}: ${pr.title}`);
+              const pr = prs[0];
+              console.log(`Found PR #${pr.number}: ${pr.title}`);
 
-            // Check if PR was approved
-            const { data: reviews } = await github.rest.pulls.listReviews({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_request_number: pr.number
-            });
+              // Check if PR was approved - use correct API endpoint
+              const { data: reviews } = await github.rest.pulls.listReviews({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number
+              });
 
-            const approvals = reviews.filter(review => review.state === 'APPROVED');
+              const approvals = reviews.filter(review => review.state === 'APPROVED');
 
-            if (approvals.length > 0) {
-              console.log(`✅ PR was approved by: ${approvals.map(r => r.user.login).join(', ')}`);
-            } else {
-              console.log('⚠️  No approvals found for this PR');
+              if (approvals.length > 0) {
+                console.log(`✅ PR was approved by: ${approvals.map(r => r.user.login).join(', ')}`);
+              } else {
+                console.log('⚠️  No approvals found for this PR');
+              }
+            } catch (error) {
+              console.log(`⚠️  Error checking PR approval: ${error.message}`);
+              console.log('Continuing with release...');
             }
 
   release:
