@@ -148,7 +148,10 @@ func BenchmarkHybridCrossoverPoint(b *testing.B) {
 		b.Run(name, func(b *testing.B) {
 			bf := NewCacheOptimizedBloomFilter(size, 0.01)
 
-
+			mode := "ARRAY"
+			if !bf.useArrayMode {
+				mode = "MAP"
+			}
 			b.Logf("Mode: %s, Cache lines: %d, Threshold: %d",
 				mode, bf.cacheLineCount, ArrayModeThreshold)
 

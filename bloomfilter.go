@@ -463,10 +463,8 @@ func (bf *CacheOptimizedBloomFilter) getHashPositionsOptimized(data []byte) {
 		}
 	} else {
 		// Map mode: dynamic scaling for large filters
-		// Clear the map efficiently
-		for k := range bf.mapMap {
-			delete(bf.mapMap, k)
-		}
+		// Clear the map efficiently with Go 1.21+ built-in
+		clear(bf.mapMap)
 		bf.usedIndicesHash = bf.usedIndicesHash[:0]
 
 		// Generate positions and group by cache line
@@ -541,10 +539,8 @@ func (bf *CacheOptimizedBloomFilter) setBitCacheOptimized(positions []uint64) {
 		}
 	} else {
 		// Map mode: dynamic scaling for large filters
-		// Clear the map efficiently
-		for k := range bf.mapOpsSet {
-			delete(bf.mapOpsSet, k)
-		}
+		// Clear the map efficiently with Go 1.21+ built-in
+		clear(bf.mapOpsSet)
 		bf.usedIndicesSet = bf.usedIndicesSet[:0]
 
 		// Group operations by cache line
@@ -619,10 +615,8 @@ func (bf *CacheOptimizedBloomFilter) getBitCacheOptimized(positions []uint64) bo
 		}
 	} else {
 		// Map mode: dynamic scaling for large filters
-		// Clear the map efficiently
-		for k := range bf.mapOps {
-			delete(bf.mapOps, k)
-		}
+		// Clear the map efficiently with Go 1.21+ built-in
+		clear(bf.mapOps)
 		bf.usedIndicesGet = bf.usedIndicesGet[:0]
 
 		// Group bit checks by cache line
