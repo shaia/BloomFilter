@@ -65,7 +65,9 @@ type CacheStats struct {
 	SIMDEnabled bool
 }
 
-// NewCacheOptimizedBloomFilter creates a cache line optimized bloom filter
+// NewCacheOptimizedBloomFilter creates a cache line optimized bloom filter with hybrid architecture.
+// Automatically selects between array mode (fast, zero allocations) for small filters
+// and map mode (unlimited scalability) for large filters based on ArrayModeThreshold.
 func NewCacheOptimizedBloomFilter(expectedElements uint64, falsePositiveRate float64) *CacheOptimizedBloomFilter {
 	// Calculate optimal parameters
 	ln2 := math.Ln2
