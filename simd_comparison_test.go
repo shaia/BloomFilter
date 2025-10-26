@@ -1,3 +1,5 @@
+// +build simd_comparison
+
 package bloomfilter
 
 import (
