@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-10-26
+
 ### Added
 
 - Hybrid array/map architecture for automatic optimization based on filter size
@@ -15,15 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unlimited scalability for large filters in map mode
 - Competitive analysis documentation vs willf/bloom
 - Comprehensive profiling documentation (CPU and memory)
-- Future optimization roadmap (paged array mode)
+- SIMD comparison tests with build tags for optional performance validation
+- GitHub Actions workflow integration for SIMD tests before releases
 
 ### Changed
 
 - **BREAKING**: Removed external dependencies (willf/bloom) for cleaner package
 - Optimized map clearing using Go 1.21+ `clear()` built-in (41% CPU improvement in hot path)
 - Eliminated double map lookups by using length-based existence checks (16.7% map overhead reduction)
-- Updated README with hybrid architecture performance metrics
+- Updated README with hybrid architecture performance metrics and use case guidance
 - Comprehensive documentation updates across all files
+- Modernized build tags from `// +build` to `//go:build` directive (Go 1.17+)
 
 ### Removed
 
@@ -38,10 +42,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Memory reduction**: 95% reduction for small filters (14.4 MB → 720 KB)
 - **Map operations**: 41% faster with `clear()` optimization
 - **Map lookups**: 16.7% overhead reduction from single lookup pattern
+- **SIMD operations**: 2-4x speedup verified across PopCount, VectorOr, VectorAnd
 
 ### Fixed
 
+- Flaky SIMD performance tests now use 0.7x tolerance threshold for system load variance
+- SIMD comparison tests are now optional (use `-tags=simd_comparison` to run)
 - Code smell: Removed unused mode variables from benchmarks
+- Code smell: Removed duplicate constant declarations in test files
 - Map access pattern: Eliminated redundant lookup operations
 - Documentation: Updated all docs to reflect current hybrid implementation
 
@@ -76,4 +84,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Versioning and release process documentation
 - Branch protection setup guide
 
+[0.2.0]: https://github.com/shaia/go-simd-bloomfilter/releases/tag/v0.2.0
 [0.1.0]: https://github.com/shaia/go-simd-bloomfilter/releases/tag/v0.1.0
