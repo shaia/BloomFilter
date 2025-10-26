@@ -4,6 +4,8 @@
 **Branch**: feature/hybrid-map-array-optimization
 **Competitor**: [willf/bloom](https://github.com/willf/bloom) - Most popular Go Bloom filter library (2.7k+ stars)
 
+> **Note**: The competitive benchmark code has been moved to a separate benchmarking project to keep this package focused. This analysis document is retained for reference and to inform optimization decisions. The benchmark results below were generated from a standalone comparison suite.
+
 ## Executive Summary
 
 Your library shows **significant advantages for small to medium filters** with the hybrid array mode, delivering:
