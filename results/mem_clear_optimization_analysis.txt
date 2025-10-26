@@ -1,0 +1,15 @@
+File: go-simd-bloomfilter.test.exe
+Build ID: C:\Users\shaia\AppData\Local\Temp\go-build1684779350\b001\go-simd-bloomfilter.test.exe2025-10-25 18:48:46.6356414 +0300 IDT
+Type: alloc_space
+Time: Oct 25, 2025 at 6:48pm (IDT)
+Showing nodes accounting for 829.17MB, 99.56% of 832.87MB total
+Dropped 35 nodes (cum <= 4.16MB)
+      flat  flat%   sum%        cum   cum%
+  539.51MB 64.78% 64.78%   539.51MB 64.78%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).getBitCacheOptimized
+     279MB 33.50% 98.28%      279MB 33.50%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).getHashPositionsOptimized
+   10.65MB  1.28% 99.56%    10.65MB  1.28%  github.com/shaia/go-simd-bloomfilter.NewCacheOptimizedBloomFilter
+         0     0% 99.56%   818.51MB 98.28%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).Contains
+         0     0% 99.56%   818.51MB 98.28%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).ContainsString (inline)
+         0     0% 99.56%   829.67MB 99.62%  github.com/shaia/go-simd-bloomfilter.BenchmarkBloomFilterWithSIMD.func1.1
+         0     0% 99.56%   826.64MB 99.25%  testing.(*B).launch
+         0     0% 99.56%   830.17MB 99.68%  testing.(*B).runN

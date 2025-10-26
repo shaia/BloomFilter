@@ -1,0 +1,19 @@
+goos: windows
+goarch: amd64
+pkg: github.com/shaia/go-simd-bloomfilter
+cpu: 13th Gen Intel(R) Core(TM) i9-13980HX
+BenchmarkHybridModes/Small_1K_Array_Add-32         	17569442	        65.60 ns/op	 121.95 MB/s	         0.001160 MB	        19.00 cache_lines	       0 B/op	       0 allocs/op
+BenchmarkHybridModes/Small_1K_Array_Contains-32    	19858869	        61.70 ns/op	 129.65 MB/s	        19.00 cache_lines	       0 B/op	       0 allocs/op
+BenchmarkHybridModes/Small_10K_Array_Add-32        	22117614	        57.40 ns/op	 139.37 MB/s	         0.01147 MB	       188.0 cache_lines	       0 B/op	       0 allocs/op
+BenchmarkHybridModes/Small_10K_Array_Contains-32   	23135874	        56.21 ns/op	 142.33 MB/s	       188.0 cache_lines	       0 B/op	       0 allocs/op
+BenchmarkHybridModes/Medium_100K_Array_Add-32      	18480586	        61.04 ns/op	 131.07 MB/s	         0.1143 MB	      1873 cache_lines	       0 B/op	       0 allocs/op
+BenchmarkHybridModes/Medium_100K_Array_Contains-32 	21644514	        58.68 ns/op	 136.34 MB/s	      1873 cache_lines	       0 B/op	       0 allocs/op
+BenchmarkHybridModes/Large_1M_Map_Add-32           	 2738151	       452.5 ns/op	  17.68 MB/s	         1.143 MB	     18721 cache_lines	     144 B/op	      11 allocs/op
+BenchmarkHybridModes/Large_1M_Map_Contains-32      	 2831568	       434.9 ns/op	  18.40 MB/s	     18721 cache_lines	     144 B/op	      12 allocs/op
+BenchmarkHybridModes/Large_10M_Map_Add-32          	 2216215	       533.2 ns/op	  15.00 MB/s	        11.43 MB	    187209 cache_lines	     144 B/op	      12 allocs/op
+BenchmarkHybridModes/Large_10M_Map_Contains-32     	 2450737	       483.0 ns/op	  16.56 MB/s	    187209 cache_lines	     144 B/op	      12 allocs/op
+BenchmarkBloomFilterWithSIMD/Size_10000/WithSIMD-32         	   19188	    255241 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomFilterWithSIMD/Size_100000/WithSIMD-32        	    3552	    371394 ns/op	       8 B/op	       0 allocs/op
+BenchmarkBloomFilterWithSIMD/Size_1000000/WithSIMD-32       	     555	   2561654 ns/op	  144001 B/op	   12000 allocs/op
+PASS
+ok  	github.com/shaia/go-simd-bloomfilter	23.922s

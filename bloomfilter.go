@@ -22,6 +22,29 @@ type CacheOptimizedBloomFilter struct {
 
 	// SIMD operations instance (initialized once for performance)
 	simdOps simd.Operations
+
+	// Hybrid approach: use arrays for small filters, maps for large filters
+	useArrayMode bool // true if cacheLineCount <= ArrayModeThreshold
+
+	// Array-based operation tracking (for small filters, zero-overhead indexing)
+	arrayOps    *[ArrayModeThreshold][]opDetail                           // For getBitCacheOptimized
+	arrayOpsSet *[ArrayModeThreshold][]struct{ wordIdx, bitOffset uint64 } // For setBitCacheOptimized
+	arrayMap    *[ArrayModeThreshold][]uint64                              // For getHashPositionsOptimized
+
+	// Map-based operation tracking (for large filters, dynamic scaling)
+	mapOps    map[uint64][]opDetail                           // For getBitCacheOptimized
+	mapOpsSet map[uint64][]struct{ wordIdx, bitOffset uint64 } // For setBitCacheOptimized
+	mapMap    map[uint64][]uint64                              // For getHashPositionsOptimized
+
+	// Track which indices are in use for fast clearing (O(used) instead of O(capacity))
+	usedIndicesGet  []uint64 // For getBitCacheOptimized
+	usedIndicesSet  []uint64 // For setBitCacheOptimized
+	usedIndicesHash []uint64 // For getHashPositionsOptimized
+}
+
+type opDetail struct {
+    wordIdx   uint64
+    bitOffset uint64
 }
 
 // CacheStats provides detailed statistics about the bloom filter
@@ -42,7 +65,9 @@ type CacheStats struct {
 	SIMDEnabled bool
 }
 
-// NewCacheOptimizedBloomFilter creates a cache line optimized bloom filter
+// NewCacheOptimizedBloomFilter creates a cache line optimized bloom filter with hybrid architecture.
+// Automatically selects between array mode (fast, zero allocations) for small filters
+// and map mode (unlimited scalability) for large filters based on ArrayModeThreshold.
 func NewCacheOptimizedBloomFilter(expectedElements uint64, falsePositiveRate float64) *CacheOptimizedBloomFilter {
 	// Calculate optimal parameters
 	ln2 := math.Ln2
@@ -72,7 +97,10 @@ func NewCacheOptimizedBloomFilter(expectedElements uint64, falsePositiveRate flo
 		}{alignedPtr, int(cacheLineCount), int(cacheLineCount)}))
 	}
 
-	return &CacheOptimizedBloomFilter{
+	// Decide between array mode (small filters) and map mode (large filters)
+	useArrayMode := cacheLineCount <= ArrayModeThreshold
+
+	bf := &CacheOptimizedBloomFilter{
 		cacheLines:       cacheLines,
 		bitCount:         bitCount,
 		hashCount:        hashCount,
@@ -80,7 +108,30 @@ func NewCacheOptimizedBloomFilter(expectedElements uint64, falsePositiveRate flo
 		positions:        make([]uint64, hashCount),
 		cacheLineIndices: make([]uint64, hashCount),
 		simdOps:          simd.Get(), // Initialize SIMD operations once
+		useArrayMode:     useArrayMode,
+		// Initialize used indices tracking arrays
+		usedIndicesGet:  make([]uint64, 0, hashCount/8+1),
+		usedIndicesSet:  make([]uint64, 0, hashCount/8+1),
+		usedIndicesHash: make([]uint64, 0, hashCount/8+1),
 	}
+
+	// Initialize either array mode or map mode structures
+	if useArrayMode {
+		// Small filter: use arrays for zero-overhead indexing
+		// Fixed memory overhead: ~240KB (10K * 24 bytes * 3 arrays)
+		bf.arrayOps = &[ArrayModeThreshold][]opDetail{}
+		bf.arrayOpsSet = &[ArrayModeThreshold][]struct{ wordIdx, bitOffset uint64 }{}
+		bf.arrayMap = &[ArrayModeThreshold][]uint64{}
+	} else {
+		// Large filter: use maps for dynamic scaling
+		// Memory overhead grows with actual usage, no hard limits
+		estimatedCapacity := int(hashCount / 4) // Estimate based on hash distribution
+		bf.mapOps = make(map[uint64][]opDetail, estimatedCapacity)
+		bf.mapOpsSet = make(map[uint64][]struct{ wordIdx, bitOffset uint64 }, estimatedCapacity)
+		bf.mapMap = make(map[uint64][]uint64, estimatedCapacity)
+	}
+
+	return bf
 }
 
 // Add adds an element with cache line optimization
@@ -263,6 +314,12 @@ const (
 	AVX2VectorSize   = 32 // 256-bit vectors = 32 bytes = 4 uint64
 	AVX512VectorSize = 64 // 512-bit vectors = 64 bytes = 8 uint64
 	NEONVectorSize   = 16 // 128-bit vectors = 16 bytes = 2 uint64
+
+	// Threshold for choosing between array and map mode
+	// Arrays: ≤10K cache lines = ~5MB bloom filter = efficient for small/medium filters
+	// Maps: >10K cache lines = scalable for large filters (up to billions of elements)
+	// Memory overhead: Array mode ~240KB fixed, Map mode grows dynamically
+	ArrayModeThreshold = 10000
 )
 
 // CacheLine represents a single 64-byte cache line containing 8 uint64 words
@@ -381,21 +438,54 @@ func (bf *CacheOptimizedBloomFilter) getHashPositionsOptimized(data []byte) {
 	h1 := hashOptimized1(data)
 	h2 := hashOptimized2(data)
 
-	// Generate positions and group by cache line to improve locality
-	cacheLineMap := make(map[uint64][]uint64)
+	if bf.useArrayMode {
+		// Array mode: zero-overhead direct indexing
+		// Clear only used indices - O(used) instead of O(capacity)
+		for _, idx := range bf.usedIndicesHash {
+			bf.arrayMap[idx] = bf.arrayMap[idx][:0]
+		}
+		bf.usedIndicesHash = bf.usedIndicesHash[:0]
 
-	for i := uint32(0); i < bf.hashCount; i++ {
-		hash := h1 + uint64(i)*h2
-		bitPos := hash % bf.bitCount
-		cacheLineIdx := bitPos / BitsPerCacheLine
+		// Generate positions and group by cache line to improve locality
+		for i := uint32(0); i < bf.hashCount; i++ {
+			hash := h1 + uint64(i)*h2
+			bitPos := hash % bf.bitCount
+			cacheLineIdx := bitPos / BitsPerCacheLine
 
-		bf.positions[i] = bitPos
-		cacheLineMap[cacheLineIdx] = append(cacheLineMap[cacheLineIdx], bitPos)
+			bf.positions[i] = bitPos
+
+			// Track first use of this cache line index
+			if len(bf.arrayMap[cacheLineIdx]) == 0 {
+				bf.usedIndicesHash = append(bf.usedIndicesHash, cacheLineIdx)
+			}
+			bf.arrayMap[cacheLineIdx] = append(bf.arrayMap[cacheLineIdx], bitPos)
+		}
+	} else {
+		// Map mode: dynamic scaling for large filters
+		// Clear the map efficiently with Go 1.21+ built-in
+		clear(bf.mapMap)
+		bf.usedIndicesHash = bf.usedIndicesHash[:0]
+
+		// Generate positions and group by cache line
+		for i := uint32(0); i < bf.hashCount; i++ {
+			hash := h1 + uint64(i)*h2
+			bitPos := hash % bf.bitCount
+			cacheLineIdx := bitPos / BitsPerCacheLine
+
+			bf.positions[i] = bitPos
+
+			// Track first use of this cache line index
+			// Check length to avoid double map lookup (auto-initializes on first append)
+			if len(bf.mapMap[cacheLineIdx]) == 0 {
+				bf.usedIndicesHash = append(bf.usedIndicesHash, cacheLineIdx)
+			}
+			bf.mapMap[cacheLineIdx] = append(bf.mapMap[cacheLineIdx], bitPos)
+		}
 	}
 
-	// Store unique cache line indices for prefetching
+	// Store unique cache line indices for prefetching (same for both modes)
 	bf.cacheLineIndices = bf.cacheLineIndices[:0]
-	for cacheLineIdx := range cacheLineMap {
+	for _, cacheLineIdx := range bf.usedIndicesHash {
 		bf.cacheLineIndices = append(bf.cacheLineIndices, cacheLineIdx)
 	}
 }
@@ -414,25 +504,69 @@ func (bf *CacheOptimizedBloomFilter) prefetchCacheLines() {
 
 // setBitCacheOptimized sets multiple bits with cache line awareness
 func (bf *CacheOptimizedBloomFilter) setBitCacheOptimized(positions []uint64) {
-	// Group operations by cache line to minimize cache misses
-	cacheLineOps := make(map[uint64][]struct{ wordIdx, bitOffset uint64 })
+	if bf.useArrayMode {
+		// Array mode: zero-overhead direct indexing
+		// Clear only used indices - O(used) instead of O(capacity)
+		for _, idx := range bf.usedIndicesSet {
+			bf.arrayOpsSet[idx] = bf.arrayOpsSet[idx][:0]
+		}
+		bf.usedIndicesSet = bf.usedIndicesSet[:0]
 
-	for _, bitPos := range positions {
-		cacheLineIdx := bitPos / BitsPerCacheLine
-		wordInCacheLine := (bitPos % BitsPerCacheLine) / 64
-		bitOffset := bitPos % 64
+		// Group operations by cache line to minimize cache misses
+		for _, bitPos := range positions {
+			cacheLineIdx := bitPos / BitsPerCacheLine
+			wordInCacheLine := (bitPos % BitsPerCacheLine) / 64
+			bitOffset := bitPos % 64
 
-		cacheLineOps[cacheLineIdx] = append(cacheLineOps[cacheLineIdx], struct{ wordIdx, bitOffset uint64 }{
-			wordIdx: wordInCacheLine, bitOffset: bitOffset,
-		})
-	}
+			// Track first use of this cache line index
+			if len(bf.arrayOpsSet[cacheLineIdx]) == 0 {
+				bf.usedIndicesSet = append(bf.usedIndicesSet, cacheLineIdx)
+			}
+			bf.arrayOpsSet[cacheLineIdx] = append(bf.arrayOpsSet[cacheLineIdx], struct{ wordIdx, bitOffset uint64 }{
+				wordIdx: wordInCacheLine, bitOffset: bitOffset,
+			})
+		}
 
-	// Process each cache line's operations together
-	for cacheLineIdx, ops := range cacheLineOps {
-		if cacheLineIdx < bf.cacheLineCount {
-			cacheLine := &bf.cacheLines[cacheLineIdx]
-			for _, op := range ops {
-				cacheLine.words[op.wordIdx] |= 1 << op.bitOffset
+		// Process each cache line's operations together
+		for _, cacheLineIdx := range bf.usedIndicesSet {
+			ops := bf.arrayOpsSet[cacheLineIdx]
+			if len(ops) > 0 && cacheLineIdx < bf.cacheLineCount {
+				cacheLine := &bf.cacheLines[cacheLineIdx]
+				for _, op := range ops {
+					cacheLine.words[op.wordIdx] |= 1 << op.bitOffset
+				}
+			}
+		}
+	} else {
+		// Map mode: dynamic scaling for large filters
+		// Clear the map efficiently with Go 1.21+ built-in
+		clear(bf.mapOpsSet)
+		bf.usedIndicesSet = bf.usedIndicesSet[:0]
+
+		// Group operations by cache line
+		for _, bitPos := range positions {
+			cacheLineIdx := bitPos / BitsPerCacheLine
+			wordInCacheLine := (bitPos % BitsPerCacheLine) / 64
+			bitOffset := bitPos % 64
+
+			// Track first use of this cache line index
+			// Check length to avoid double map lookup (auto-initializes on first append)
+			if len(bf.mapOpsSet[cacheLineIdx]) == 0 {
+				bf.usedIndicesSet = append(bf.usedIndicesSet, cacheLineIdx)
+			}
+			bf.mapOpsSet[cacheLineIdx] = append(bf.mapOpsSet[cacheLineIdx], struct{ wordIdx, bitOffset uint64 }{
+				wordIdx: wordInCacheLine, bitOffset: bitOffset,
+			})
+		}
+
+		// Process each cache line's operations together
+		for _, cacheLineIdx := range bf.usedIndicesSet {
+			ops := bf.mapOpsSet[cacheLineIdx]
+			if len(ops) > 0 && cacheLineIdx < bf.cacheLineCount {
+				cacheLine := &bf.cacheLines[cacheLineIdx]
+				for _, op := range ops {
+					cacheLine.words[op.wordIdx] |= 1 << op.bitOffset
+				}
 			}
 		}
 	}
@@ -440,29 +574,83 @@ func (bf *CacheOptimizedBloomFilter) setBitCacheOptimized(positions []uint64) {
 
 // getBitCacheOptimized checks multiple bits with cache line awareness
 func (bf *CacheOptimizedBloomFilter) getBitCacheOptimized(positions []uint64) bool {
-	// Group operations by cache line
-	cacheLineOps := make(map[uint64][]struct{ wordIdx, bitOffset uint64 })
+	if bf.useArrayMode {
+		// Array mode: zero-overhead direct indexing
+		// Clear only used indices - O(used) instead of O(capacity)
+		for _, idx := range bf.usedIndicesGet {
+			bf.arrayOps[idx] = bf.arrayOps[idx][:0]
+		}
+		bf.usedIndicesGet = bf.usedIndicesGet[:0]
 
-	for _, bitPos := range positions {
-		cacheLineIdx := bitPos / BitsPerCacheLine
-		wordInCacheLine := (bitPos % BitsPerCacheLine) / 64
-		bitOffset := bitPos % 64
+		// Group bit checks by cache line to improve locality
+		for _, bitPos := range positions {
+			cacheLineIdx := bitPos / BitsPerCacheLine
+			wordInCacheLine := (bitPos % BitsPerCacheLine) / 64
+			bitOffset := bitPos % 64
 
-		cacheLineOps[cacheLineIdx] = append(cacheLineOps[cacheLineIdx], struct{ wordIdx, bitOffset uint64 }{
-			wordIdx: wordInCacheLine, bitOffset: bitOffset,
-		})
-	}
-
-	// Check each cache line's bits together
-	for cacheLineIdx, ops := range cacheLineOps {
-		if cacheLineIdx >= bf.cacheLineCount {
-			return false
+			// Track first use of this cache line index
+			if len(bf.arrayOps[cacheLineIdx]) == 0 {
+				bf.usedIndicesGet = append(bf.usedIndicesGet, cacheLineIdx)
+			}
+			bf.arrayOps[cacheLineIdx] = append(bf.arrayOps[cacheLineIdx], opDetail{
+				wordIdx: wordInCacheLine, bitOffset: bitOffset,
+			})
 		}
 
-		cacheLine := &bf.cacheLines[cacheLineIdx]
-		for _, op := range ops {
-			if (cacheLine.words[op.wordIdx] & (1 << op.bitOffset)) == 0 {
+		// Check each cache line's bits together
+		for _, cacheLineIdx := range bf.usedIndicesGet {
+			ops := bf.arrayOps[cacheLineIdx]
+			if len(ops) == 0 {
+				continue
+			}
+			if cacheLineIdx >= bf.cacheLineCount {
 				return false
+			}
+
+			cacheLine := &bf.cacheLines[cacheLineIdx]
+			for _, op := range ops {
+				if (cacheLine.words[op.wordIdx] & (1 << op.bitOffset)) == 0 {
+					return false
+				}
+			}
+		}
+	} else {
+		// Map mode: dynamic scaling for large filters
+		// Clear the map efficiently with Go 1.21+ built-in
+		clear(bf.mapOps)
+		bf.usedIndicesGet = bf.usedIndicesGet[:0]
+
+		// Group bit checks by cache line
+		for _, bitPos := range positions {
+			cacheLineIdx := bitPos / BitsPerCacheLine
+			wordInCacheLine := (bitPos % BitsPerCacheLine) / 64
+			bitOffset := bitPos % 64
+
+			// Track first use of this cache line index
+			// Check length to avoid double map lookup (auto-initializes on first append)
+			if len(bf.mapOps[cacheLineIdx]) == 0 {
+				bf.usedIndicesGet = append(bf.usedIndicesGet, cacheLineIdx)
+			}
+			bf.mapOps[cacheLineIdx] = append(bf.mapOps[cacheLineIdx], opDetail{
+				wordIdx: wordInCacheLine, bitOffset: bitOffset,
+			})
+		}
+
+		// Check each cache line's bits together
+		for _, cacheLineIdx := range bf.usedIndicesGet {
+			ops := bf.mapOps[cacheLineIdx]
+			if len(ops) == 0 {
+				continue
+			}
+			if cacheLineIdx >= bf.cacheLineCount {
+				return false
+			}
+
+			cacheLine := &bf.cacheLines[cacheLineIdx]
+			for _, op := range ops {
+				if (cacheLine.words[op.wordIdx] & (1 << op.bitOffset)) == 0 {
+					return false
+				}
 			}
 		}
 	}

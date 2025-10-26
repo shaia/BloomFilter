@@ -1,0 +1,18 @@
+Total: 13.02s
+ROUTINE ======================== github.com/shaia/go-simd-bloomfilter.BenchmarkBloomFilterWithSIMD.func1.1 in c:\Users\shaia\development\BloomFilter\simd_comparison_test.go
+      30ms     10.27s (flat, cum) 78.88% of Total
+         .          .    382:			b.Run("WithSIMD", func(b *testing.B) {
+         .          .    383:				for i := 0; i < b.N; i++ {
+         .      240ms    384:					bf := NewCacheOptimizedBloomFilter(uint64(size), 0.01)
+         .          .    385:					// Insert some elements
+      20ms       20ms    386:					for j := 0; j < 1000; j++ {
+         .      4.87s    387:						bf.AddString(fmt.Sprintf("test-%d", j))
+         .          .    388:					}
+         .          .    389:					// Query some elements
+      10ms       10ms    390:					for j := 0; j < 1000; j++ {
+         .      5.13s    391:						_ = bf.ContainsString(fmt.Sprintf("test-%d", j))
+         .          .    392:					}
+         .          .    393:				}
+         .          .    394:			})
+         .          .    395:		})
+         .          .    396:	}

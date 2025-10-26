@@ -2,14 +2,18 @@
 
 A high-performance, cache-line optimized bloom filter implementation in Go with hardware-accelerated SIMD operations.
 
+**Optimized for small to medium filters (10K-100K elements)** with zero-allocation array mode. Scales to billions of elements with dynamic map mode.
+
 ## Features
 
-- **🚀 SIMD Acceleration**: Automatic detection and usage of AVX2, AVX512, and ARM NEON instructions
-- **⚡ Cache-Optimized**: 64-byte aligned memory structures for optimal CPU cache performance
-- **🌍 Cross-Platform**: Supports x86_64 (Intel/AMD) and ARM64 architectures
-- **📊 High Performance**: 2.2x - 3.5x speedup with SIMD over scalar implementations
-- **💾 Memory Efficient**: Cache-line aware allocation and vectorized bulk operations
-- **✅ Production Ready**: Comprehensive test suite with 100% correctness validation
+- **SIMD Acceleration**: Automatic detection and usage of AVX2, AVX512, and ARM NEON instructions
+- **Cache-Optimized**: 64-byte aligned memory structures for optimal CPU cache performance
+- **Hybrid Architecture**: Automatic array/map mode selection for optimal performance across all filter sizes
+- **Cross-Platform**: Supports x86_64 (Intel/AMD) and ARM64 architectures
+- **High Performance**: 2.2x - 3.5x speedup with SIMD over scalar implementations
+- **Memory Efficient**: 95% memory reduction for small filters, unlimited scalability for large filters
+- **Zero Allocations**: Array mode operations with zero per-operation allocations for small filters
+- **Production Ready**: Comprehensive test suite with 100% correctness validation
 
 ## Performance
 
@@ -31,11 +35,53 @@ A high-performance, cache-line optimized bloom filter implementation in Go with 
 - **Lookups**: ~2.2M operations/second
 - **False Positive Rate**: 0.05% (target: 1.0%)
 
+### Hybrid Architecture Performance
+
+The filter automatically selects the optimal data structure based on size:
+
+| Filter Size | Mode | Add/Contains | Allocations | Memory Overhead |
+|-------------|------|--------------|-------------|-----------------|
+| **10K elements** | Array | 55-65 ns/op | 0 B/op | ~720 KB fixed |
+| **100K elements** | Array | 55-65 ns/op | 0 B/op | ~720 KB fixed |
+| **1M elements** | Map | 450-485 ns/op | 144 B/op | Dynamic |
+| **10M+ elements** | Map | 450-520 ns/op | 144 B/op | Dynamic |
+
+**Key Benefits:**
+- Small filters (≤10K cache lines): **Zero allocations**, **1.5x faster** than alternatives
+- Large filters (>10K cache lines): **Unlimited scalability**, no hard limits
+- Automatic mode selection: No configuration needed
+
 ## Installation
 
 ```bash
 go get github.com/shaia/go-simd-bloomfilter
 ```
+
+## Best Use Cases
+
+This library is **optimized for small to medium-sized filters** where performance and memory efficiency are critical:
+
+**Ideal For (Array Mode - 10K to 100K elements):**
+- **Microservices**: Per-request or per-session filtering
+- **Rate limiting**: Token buckets, request deduplication
+- **Session management**: User session tracking, authentication
+- **Cache keys**: Bloom filter for cache existence checks
+- **Real-time streaming**: Per-connection or per-stream filters
+- **API gateways**: Request deduplication, idempotency checks
+
+**Also Suitable For (Map Mode - 1M+ elements):**
+- **Large-scale deduplication**: Millions of elements with unlimited scalability
+- **Data processing pipelines**: Batch processing with large datasets
+- **Distributed systems**: No hard size limits, grows as needed
+
+**Consider Alternatives For:**
+- **Very large filters (>10M elements)** where simplicity is preferred over features
+- **Extremely low-latency requirements** (willf/bloom may be 3-5x faster for huge filters)
+
+**Performance Summary:**
+- **Small filters**: 1.5x faster than alternatives, zero allocations
+- **Large filters**: Competitive performance, unlimited scalability
+- **SIMD operations**: 2-4x faster for bulk operations (Union, Intersection, PopCount)
 
 ## Quick Start
 
@@ -296,11 +342,11 @@ func HasSIMD() bool    // Check for any SIMD support
 
 | Architecture | SIMD Support | Status |
 |--------------|--------------|--------|
-| x86_64 (Intel/AMD) | AVX2 | ✅ Implemented & Tested |
-| x86_64 (Intel/AMD) | AVX512 | 🔄 Placeholder |
-| ARM64 (Apple Silicon) | NEON | ✅ Implemented |
-| ARM64 (Other) | NEON | ✅ Implemented |
-| Other | Scalar | ✅ Optimized Fallback |
+| x86_64 (Intel/AMD) | AVX2 | Implemented & Tested |
+| x86_64 (Intel/AMD) | AVX512 | Placeholder |
+| ARM64 (Apple Silicon) | NEON | Implemented |
+| ARM64 (Other) | NEON | Implemented |
+| Other | Scalar | Optimized Fallback |
 
 ## Contributing
 

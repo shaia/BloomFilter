@@ -1,0 +1,9 @@
+goos: windows
+goarch: amd64
+pkg: github.com/shaia/go-simd-bloomfilter
+cpu: 13th Gen Intel(R) Core(TM) i9-13980HX
+BenchmarkBloomFilterWithSIMD/Size_10000/WithSIMD-32         	   37958	     66777 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomFilterWithSIMD/Size_100000/WithSIMD-32        	   32320	     79138 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomFilterWithSIMD/Size_1000000/WithSIMD-32       	   27663	     90635 ns/op	       2 B/op	       0 allocs/op
+PASS
+ok  	github.com/shaia/go-simd-bloomfilter	10.021s

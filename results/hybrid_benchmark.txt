@@ -1,0 +1,58 @@
+goos: windows
+goarch: amd64
+pkg: github.com/shaia/go-simd-bloomfilter
+cpu: 13th Gen Intel(R) Core(TM) i9-13980HX
+BenchmarkHybridModes/Small_1K_Array_Add-32         	 8343205	        77.02 ns/op	 103.87 MB/s	         0.001160 MB	        19.00 cache_lines	       0 B/op	       0 allocs/op
+BenchmarkHybridModes/Small_1K_Array_Contains-32    	 9691440	        66.05 ns/op	 121.12 MB/s	        19.00 cache_lines	       0 B/op	       0 allocs/op
+BenchmarkHybridModes/Small_10K_Array_Add-32        	 9775839	        59.36 ns/op	 134.77 MB/s	         0.01147 MB	       188.0 cache_lines	       0 B/op	       0 allocs/op
+BenchmarkHybridModes/Small_10K_Array_Contains-32   	10440283	        58.17 ns/op	 137.54 MB/s	       188.0 cache_lines	       0 B/op	       0 allocs/op
+BenchmarkHybridModes/Medium_100K_Array_Add-32      	 9737271	        63.87 ns/op	 125.26 MB/s	         0.1143 MB	      1873 cache_lines	       0 B/op	       0 allocs/op
+BenchmarkHybridModes/Medium_100K_Array_Contains-32 	 9728509	        62.21 ns/op	 128.59 MB/s	      1873 cache_lines	       0 B/op	       0 allocs/op
+BenchmarkHybridModes/Large_1M_Map_Add-32           	 1263673	       479.0 ns/op	  16.70 MB/s	         1.143 MB	     18721 cache_lines	     144 B/op	      11 allocs/op
+BenchmarkHybridModes/Large_1M_Map_Contains-32      	 1322274	       442.9 ns/op	  18.06 MB/s	     18721 cache_lines	     144 B/op	      12 allocs/op
+BenchmarkHybridModes/Large_10M_Map_Add-32          	 1000000	       526.7 ns/op	  15.19 MB/s	        11.43 MB	    187209 cache_lines	     144 B/op	      12 allocs/op
+BenchmarkHybridModes/Large_10M_Map_Contains-32     	 1212825	       545.4 ns/op	  14.67 MB/s	    187209 cache_lines	     144 B/op	      12 allocs/op
+PASS
+ok  	github.com/shaia/go-simd-bloomfilter	8.132s
+goos: windows
+goarch: amd64
+pkg: github.com/shaia/go-simd-bloomfilter
+cpu: 13th Gen Intel(R) Core(TM) i9-13980HX
+BenchmarkHybridCrossoverPoint/Elements_1M-32         	  682027	      1011 ns/op	  15.82 MB/s	     18721 cache_lines	     288 B/op	      23 allocs/op
+--- BENCH: BenchmarkHybridCrossoverPoint/Elements_1M-32
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 18721, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 18721, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 18721, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 18721, Threshold: 10000
+BenchmarkHybridCrossoverPoint/Elements_3M-32         	  579648	       960.0 ns/op	  16.67 MB/s	     56163 cache_lines	     288 B/op	      23 allocs/op
+--- BENCH: BenchmarkHybridCrossoverPoint/Elements_3M-32
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 56163, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 56163, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 56163, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 56163, Threshold: 10000
+BenchmarkHybridCrossoverPoint/Elements_5M-32         	  686498	      1014 ns/op	  15.78 MB/s	     93605 cache_lines	     288 B/op	      24 allocs/op
+--- BENCH: BenchmarkHybridCrossoverPoint/Elements_5M-32
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 93605, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 93605, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 93605, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 93605, Threshold: 10000
+BenchmarkHybridCrossoverPoint/Elements_5M#01-32      	  661520	      1022 ns/op	  15.65 MB/s	    102965 cache_lines	     288 B/op	      24 allocs/op
+--- BENCH: BenchmarkHybridCrossoverPoint/Elements_5M#01-32
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 102965, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 102965, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 102965, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 102965, Threshold: 10000
+BenchmarkHybridCrossoverPoint/Elements_10M-32        	  661134	      1016 ns/op	  15.74 MB/s	    187209 cache_lines	     288 B/op	      24 allocs/op
+--- BENCH: BenchmarkHybridCrossoverPoint/Elements_10M-32
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 187209, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 187209, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 187209, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 187209, Threshold: 10000
+BenchmarkHybridCrossoverPoint/Elements_50M-32        	  563686	      1033 ns/op	  15.49 MB/s	    936041 cache_lines	     288 B/op	      24 allocs/op
+--- BENCH: BenchmarkHybridCrossoverPoint/Elements_50M-32
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 936041, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 936041, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 936041, Threshold: 10000
+    hybrid_benchmark_test.go:173: Mode: MAP, Cache lines: 936041, Threshold: 10000
+PASS
+ok  	github.com/shaia/go-simd-bloomfilter	4.025s

@@ -1,0 +1,60 @@
+Total: 8.50s
+ROUTINE ======================== github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).getBitCacheOptimized in c:\Users\shaia\development\BloomFilter\bloomfilter.go
+     2.31s      3.42s (flat, cum) 40.24% of Total
+      10ms       10ms    575:func (bf *CacheOptimizedBloomFilter) getBitCacheOptimized(positions []uint64) bool {
+      40ms       40ms    576:	if bf.useArrayMode {
+         .          .    577:		// Array mode: zero-overhead direct indexing
+         .          .    578:		// Clear only used indices - O(used) instead of O(capacity)
+     150ms      150ms    579:		for _, idx := range bf.usedIndicesGet {
+      80ms       80ms    580:			bf.arrayOps[idx] = bf.arrayOps[idx][:0]
+         .          .    581:		}
+         .          .    582:		bf.usedIndicesGet = bf.usedIndicesGet[:0]
+         .          .    583:
+         .          .    584:		// Group bit checks by cache line to improve locality
+     180ms      180ms    585:		for _, bitPos := range positions {
+      50ms       50ms    586:			cacheLineIdx := bitPos / BitsPerCacheLine
+      40ms       40ms    587:			wordInCacheLine := (bitPos % BitsPerCacheLine) / 64
+         .          .    588:			bitOffset := bitPos % 64
+         .          .    589:
+         .          .    590:			// Track first use of this cache line index
+     260ms      260ms    591:			if len(bf.arrayOps[cacheLineIdx]) == 0 {
+     120ms      120ms    592:				bf.usedIndicesGet = append(bf.usedIndicesGet, cacheLineIdx)
+         .          .    593:			}
+     300ms      300ms    594:			bf.arrayOps[cacheLineIdx] = append(bf.arrayOps[cacheLineIdx], opDetail{
+         .          .    595:				wordIdx: wordInCacheLine, bitOffset: bitOffset,
+         .          .    596:			})
+         .          .    597:		}
+         .          .    598:
+         .          .    599:		// Check each cache line's bits together
+     220ms      220ms    600:		for _, cacheLineIdx := range bf.usedIndicesGet {
+     110ms      110ms    601:			ops := bf.arrayOps[cacheLineIdx]
+         .          .    602:			if len(ops) == 0 {
+         .          .    603:				continue
+         .          .    604:			}
+      20ms       20ms    605:			if cacheLineIdx >= bf.cacheLineCount {
+         .          .    606:				return false
+         .          .    607:			}
+         .          .    608:
+     110ms      110ms    609:			cacheLine := &bf.cacheLines[cacheLineIdx]
+     160ms      160ms    610:			for _, op := range ops {
+     260ms      260ms    611:				if (cacheLine.words[op.wordIdx] & (1 << op.bitOffset)) == 0 {
+         .          .    612:					return false
+         .          .    613:				}
+         .          .    614:			}
+         .          .    615:		}
+         .          .    616:	} else {
+         .          .    617:		// Map mode: dynamic scaling for large filters
+         .          .    618:		// Clear the map efficiently with Go 1.21+ built-in
+         .      120ms    619:		clear(bf.mapOps)
+         .          .    620:		bf.usedIndicesGet = bf.usedIndicesGet[:0]
+         .          .    621:
+         .          .    622:		// Group bit checks by cache line
+      10ms       10ms    623:		for _, bitPos := range positions {
+         .          .    624:			cacheLineIdx := bitPos / BitsPerCacheLine
+         .          .    625:			wordInCacheLine := (bitPos % BitsPerCacheLine) / 64
+         .          .    626:			bitOffset := bitPos % 64
+         .          .    627:
+         .          .    628:			// Track first use of this cache line index
+         .       60ms    629:			if _, exists := bf.mapOps[cacheLineIdx]; !exists {
+      30ms       30ms    630:				bf.usedIndicesGet = append(bf.usedIndicesGet, cacheLineIdx)
+         .          .    631:			}

@@ -1,0 +1,29 @@
+File: go-simd-bloomfilter.test.exe
+Build ID: C:\Users\shaia\AppData\Local\Temp\go-build1036253730\b001\go-simd-bloomfilter.test.exe2025-10-18 20:08:45.6524147 +0300 IDT
+Type: cpu
+Time: Oct 18, 2025 at 8:08pm (IDT)
+Duration: 13.01s, Total samples = 12.63s (97.12%)
+Showing nodes accounting for 12.35s, 97.78% of 12.63s total
+Dropped 76 nodes (cum <= 0.06s)
+Showing top 20 nodes out of 33
+      flat  flat%   sum%        cum   cum%
+     4.98s 39.43% 39.43%      5.77s 45.68%  runtime.mapiternext
+     2.16s 17.10% 56.53%      2.83s 22.41%  runtime.mapassign_fast64
+     1.51s 11.96% 68.49%      2.37s 18.76%  runtime.mapaccess1_fast64
+     0.84s  6.65% 75.14%      0.84s  6.65%  runtime.add (inline)
+     0.76s  6.02% 81.16%      6.66s 52.73%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).getHashPositionsOptimized
+     0.67s  5.30% 86.46%      0.67s  5.30%  runtime.memhash64
+     0.42s  3.33% 89.79%      4.56s 36.10%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).getBitCacheOptimized
+     0.26s  2.06% 91.84%      0.26s  2.06%  runtime.isEmpty (inline)
+     0.13s  1.03% 92.87%      1.13s  8.95%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).setBitCacheOptimized
+     0.10s  0.79% 93.67%      0.15s  1.19%  runtime.(*bmap).keys (inline)
+     0.10s  0.79% 94.46%      0.17s  1.35%  runtime.(*bmap).overflow (inline)
+     0.10s  0.79% 95.25%      0.10s  0.79%  runtime.bucketShift (inline)
+     0.09s  0.71% 95.96%      0.09s  0.71%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).prefetchCacheLines (inline)
+     0.08s  0.63% 96.60%      0.08s  0.63%  internal/abi.(*MapType).IndirectElem (inline)
+     0.08s  0.63% 97.23%      0.16s  1.27%  runtime.bucketMask (inline)
+     0.07s  0.55% 97.78%      0.07s  0.55%  runtime.cgocall
+         0     0% 97.78%      2.10s 16.63%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).Add
+         0     0% 97.78%      2.10s 16.63%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).AddString
+         0     0% 97.78%     10.34s 81.87%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).Contains
+         0     0% 97.78%     10.34s 81.87%  github.com/shaia/go-simd-bloomfilter.(*CacheOptimizedBloomFilter).ContainsString
