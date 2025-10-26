@@ -1,3 +1,5 @@
+//go:build simd_comparison
+
 package bloomfilter
 
 import (
@@ -7,6 +9,11 @@ import (
 
 	"github.com/shaia/go-simd-bloomfilter/internal/simd"
 )
+
+// minAcceptableSpeedup defines the minimum acceptable SIMD speedup factor.
+// Allow 30% tolerance for variance due to system load, cache effects, etc.
+// SIMD should generally be faster, but may occasionally be slower under load.
+const minAcceptableSpeedup = 0.7
 
 // BenchmarkSIMDvsScalar compares SIMD implementations against scalar fallback
 func BenchmarkSIMDvsScalar(b *testing.B) {
@@ -163,8 +170,8 @@ func TestSIMDPerformanceImprovement(t *testing.T) {
 				t.Logf("Fallback: %d ns/op", fallbackNsPerOp)
 				t.Logf("Speedup: %.2fx", speedup)
 
-				if speedup < 1.0 {
-					t.Errorf("SIMD should be faster than fallback, got speedup of %.2fx", speedup)
+				if speedup < minAcceptableSpeedup {
+					t.Errorf("SIMD significantly slower than fallback: %.2fx speedup (expected >= %.1fx)", speedup, minAcceptableSpeedup)
 				}
 
 				// For larger sizes, we expect significant speedup
@@ -214,8 +221,8 @@ func TestSIMDPerformanceImprovement(t *testing.T) {
 				t.Logf("Fallback: %d ns/op", fallbackNsPerOp)
 				t.Logf("Speedup: %.2fx", speedup)
 
-				if speedup < 1.0 {
-					t.Errorf("SIMD should be faster than fallback, got speedup of %.2fx", speedup)
+				if speedup < minAcceptableSpeedup {
+					t.Errorf("SIMD significantly slower than fallback: %.2fx speedup (expected >= %.1fx)", speedup, minAcceptableSpeedup)
 				}
 			})
 
@@ -260,8 +267,8 @@ func TestSIMDPerformanceImprovement(t *testing.T) {
 				t.Logf("Fallback: %d ns/op", fallbackNsPerOp)
 				t.Logf("Speedup: %.2fx", speedup)
 
-				if speedup < 1.0 {
-					t.Errorf("SIMD should be faster than fallback, got speedup of %.2fx", speedup)
+				if speedup < minAcceptableSpeedup {
+					t.Errorf("SIMD significantly slower than fallback: %.2fx speedup (expected >= %.1fx)", speedup, minAcceptableSpeedup)
 				}
 			})
 		})

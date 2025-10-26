@@ -49,6 +49,11 @@ jobs:
           go test -v ./...
           go test -v -run=TestSIMDCorrectness
 
+      - name: Run SIMD comparison tests
+        run: |
+          echo "Running SIMD performance comparison tests..."
+          go test -tags=simd_comparison -v -run=TestSIMDPerformanceImprovement
+
       - name: Build
         run: |
           echo "Building to ensure no build errors..."
