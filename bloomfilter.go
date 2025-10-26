@@ -313,9 +313,6 @@ const (
 	AVX512VectorSize = 64 // 512-bit vectors = 64 bytes = 8 uint64
 	NEONVectorSize   = 16 // 128-bit vectors = 16 bytes = 2 uint64
 
-	// Maximum cache lines for array-based optimization (legacy constant)
-	MaxCacheLines = 200000
-
 	// Threshold for choosing between array and map mode
 	// Arrays: ≤10K cache lines = ~5MB bloom filter = efficient for small/medium filters
 	// Maps: >10K cache lines = scalable for large filters (up to billions of elements)
