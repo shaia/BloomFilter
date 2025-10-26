@@ -1,0 +1,26 @@
+goos: windows
+goarch: amd64
+pkg: github.com/shaia/go-simd-bloomfilter/results
+cpu: 13th Gen Intel(R) Core(TM) i9-13980HX
+BenchmarkComparisonAdd/Size_10K_FPR_1%/shaia_bf-32         	   41390	     58537 ns/op	       1 B/op	       0 allocs/op
+BenchmarkComparisonAdd/Size_10K_FPR_1%/willf_bf-32         	   28020	     87997 ns/op	   97000 B/op	    2000 allocs/op
+BenchmarkComparisonAdd/Size_100K_FPR_1%/shaia_bf-32        	   37909	     64877 ns/op	      13 B/op	       0 allocs/op
+BenchmarkComparisonAdd/Size_100K_FPR_1%/willf_bf-32        	   27662	     86661 ns/op	   97000 B/op	    2000 allocs/op
+BenchmarkComparisonAdd/Size_1M_FPR_1%/shaia_bf-32          	    4866	    483274 ns/op	  144021 B/op	   11999 allocs/op
+BenchmarkComparisonAdd/Size_1M_FPR_1%/willf_bf-32          	   24117	    102118 ns/op	   97001 B/op	    2000 allocs/op
+BenchmarkComparisonAdd/Size_10M_FPR_1%/shaia_bf-32         	    3867	    546432 ns/op	  144002 B/op	   12000 allocs/op
+BenchmarkComparisonAdd/Size_10M_FPR_1%/willf_bf-32         	   16071	    144439 ns/op	   97000 B/op	    2000 allocs/op
+BenchmarkComparisonAdd/Size_1M_FPR_0.1%/shaia_bf-32        	    2763	    881200 ns/op	  218270 B/op	   18007 allocs/op
+BenchmarkComparisonAdd/Size_1M_FPR_0.1%/willf_bf-32        	   20487	    116020 ns/op	   97000 B/op	    2000 allocs/op
+BenchmarkComparisonContains/Size_10K_FPR_1%/shaia_bf-32    	   41767	     57462 ns/op	       0 B/op	       0 allocs/op
+BenchmarkComparisonContains/Size_10K_FPR_1%/willf_bf-32    	   27886	     85430 ns/op	   97000 B/op	    2000 allocs/op
+BenchmarkComparisonContains/Size_100K_FPR_1%/shaia_bf-32   	   35184	     63032 ns/op	       0 B/op	       0 allocs/op
+BenchmarkComparisonContains/Size_100K_FPR_1%/willf_bf-32   	   26832	     84717 ns/op	   97000 B/op	    2000 allocs/op
+BenchmarkComparisonContains/Size_1M_FPR_1%/shaia_bf-32     	    4960	    485507 ns/op	  144000 B/op	   12000 allocs/op
+BenchmarkComparisonContains/Size_1M_FPR_1%/willf_bf-32     	   26655	     91352 ns/op	   97001 B/op	    2000 allocs/op
+BenchmarkComparisonContains/Size_10M_FPR_1%/shaia_bf-32    	    5229	    454416 ns/op	  144000 B/op	   12000 allocs/op
+BenchmarkComparisonContains/Size_10M_FPR_1%/willf_bf-32    	   27582	     85938 ns/op	   97000 B/op	    2000 allocs/op
+BenchmarkComparisonContains/Size_1M_FPR_0.1%/shaia_bf-32   	    2613	    880450 ns/op	  218254 B/op	   18007 allocs/op
+BenchmarkComparisonContains/Size_1M_FPR_0.1%/willf_bf-32   	   23752	     98247 ns/op	   97000 B/op	    2000 allocs/op
+PASS
+ok  	github.com/shaia/go-simd-bloomfilter/results	60.300s
