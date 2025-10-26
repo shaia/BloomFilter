@@ -97,13 +97,13 @@ After pushing the tag, the release workflow will:
 
 You can monitor progress:
 
-- [Actions tab](https://github.com/shaia/go-simd-bloomfilter/actions)
-- [Releases page](https://github.com/shaia/go-simd-bloomfilter/releases)
+- [Actions tab](https://github.com/shaia/BloomFilter/actions)
+- [Releases page](https://github.com/shaia/BloomFilter/releases)
 
 Users can then install:
 
 ```bash
-go get github.com/shaia/go-simd-bloomfilter@v0.1.0
+go get github.com/shaia/BloomFilter@v0.1.0
 ```
 
 ## Pre-release Versions
@@ -215,14 +215,14 @@ Users can install specific versions:
 
 ```bash
 # Latest version
-go get github.com/shaia/go-simd-bloomfilter
+go get github.com/shaia/BloomFilter
 
 # Specific version
-go get github.com/shaia/go-simd-bloomfilter@v0.1.0
+go get github.com/shaia/BloomFilter@v0.1.0
 
 # Specific commit (for testing)
-go get github.com/shaia/go-simd-bloomfilter@commit-hash
+go get github.com/shaia/BloomFilter@commit-hash
 
 # Latest of a major version
-go get github.com/shaia/go-simd-bloomfilter@v1
+go get github.com/shaia/BloomFilter@v1
 ```

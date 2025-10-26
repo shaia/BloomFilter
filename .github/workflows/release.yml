@@ -150,4 +150,4 @@ jobs:
         run: |
           echo "Waiting for module proxy to update..."
           sleep 10
-          curl -f "https://proxy.golang.org/github.com/shaia/go-simd-bloomfilter/@v/${{ steps.version.outputs.TAG }}.info" || echo "Module not yet available on proxy"
+          curl -f "https://proxy.golang.org/github.com/shaia/BloomFilter/@v/${{ steps.version.outputs.TAG }}.info" || echo "Module not yet available on proxy"

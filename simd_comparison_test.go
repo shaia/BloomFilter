@@ -7,7 +7,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/shaia/go-simd-bloomfilter/internal/simd"
+	"github.com/shaia/BloomFilter/internal/simd"
 )
 
 // minAcceptableSpeedup defines the minimum acceptable SIMD speedup factor.

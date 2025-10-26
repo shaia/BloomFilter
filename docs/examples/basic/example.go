@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"runtime"
 
-	bf "github.com/shaia/go-simd-bloomfilter"
+	bf "github.com/shaia/BloomFilter"
 )
 
 // Build information, set via ldflags

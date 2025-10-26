@@ -5,7 +5,7 @@ import (
 	"math"
 	"unsafe"
 
-	"github.com/shaia/go-simd-bloomfilter/internal/simd"
+	"github.com/shaia/BloomFilter/internal/simd"
 )
 
 // CacheOptimizedBloomFilter uses cache line aligned storage

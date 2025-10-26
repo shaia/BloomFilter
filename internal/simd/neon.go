@@ -3,7 +3,7 @@ package simd
 import (
 	"unsafe"
 
-	"github.com/shaia/go-simd-bloomfilter/internal/simd/arm64"
+	"github.com/shaia/BloomFilter/internal/simd/arm64"
 )
 
 // NEONOperations implements SIMD operations using ARM NEON

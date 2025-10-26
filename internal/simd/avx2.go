@@ -3,7 +3,7 @@ package simd
 import (
 	"unsafe"
 
-	"github.com/shaia/go-simd-bloomfilter/internal/simd/amd64"
+	"github.com/shaia/BloomFilter/internal/simd/amd64"
 )
 
 // AVX2Operations implements SIMD operations using Intel/AMD AVX2

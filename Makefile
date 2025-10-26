@@ -1,5 +1,5 @@
 # Go SIMD Bloom Filter Makefile
-# Project: github.com/shaia/go-simd-bloomfilter
+# Project: github.com/shaia/BloomFilter
 
 # Variables
 PACKAGE_PATH = .
@@ -289,5 +289,5 @@ docs:
 .PHONY: godoc
 godoc:
 	@echo "Starting godoc server..."
-	@echo "Visit http://localhost:6060/pkg/github.com/shaia/go-simd-bloomfilter/"
+	@echo "Visit http://localhost:6060/pkg/github.com/shaia/BloomFilter/"
 	godoc -http=:6060

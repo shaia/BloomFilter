@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"unsafe"
 
-	"github.com/shaia/go-simd-bloomfilter/internal/simd/amd64"
+	"github.com/shaia/BloomFilter/internal/simd/amd64"
 )
 
 // Operations defines the interface for SIMD operations

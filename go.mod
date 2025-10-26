@@ -1,3 +1,3 @@
-module github.com/shaia/go-simd-bloomfilter
+module github.com/shaia/BloomFilter
 
 go 1.23

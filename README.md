@@ -54,7 +54,7 @@ The filter automatically selects the optimal data structure based on size:
 ## Installation
 
 ```bash
-go get github.com/shaia/go-simd-bloomfilter
+go get github.com/shaia/BloomFilter
 ```
 
 ## Best Use Cases
@@ -90,7 +90,7 @@ package main
 
 import (
     "fmt"
-    bf "github.com/shaia/go-simd-bloomfilter"
+    bf "github.com/shaia/BloomFilter"
 )
 
 func main() {

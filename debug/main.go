@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	bf "github.com/shaia/go-simd-bloomfilter"
+	bf "github.com/shaia/BloomFilter"
 )
 
 func main() {
