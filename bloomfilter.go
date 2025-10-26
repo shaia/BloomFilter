@@ -476,7 +476,8 @@ func (bf *CacheOptimizedBloomFilter) getHashPositionsOptimized(data []byte) {
 			bf.positions[i] = bitPos
 
 			// Track first use of this cache line index
-			if _, exists := bf.mapMap[cacheLineIdx]; !exists {
+			// Check length to avoid double map lookup (auto-initializes on first append)
+			if len(bf.mapMap[cacheLineIdx]) == 0 {
 				bf.usedIndicesHash = append(bf.usedIndicesHash, cacheLineIdx)
 			}
 			bf.mapMap[cacheLineIdx] = append(bf.mapMap[cacheLineIdx], bitPos)
@@ -550,7 +551,8 @@ func (bf *CacheOptimizedBloomFilter) setBitCacheOptimized(positions []uint64) {
 			bitOffset := bitPos % 64
 
 			// Track first use of this cache line index
-			if _, exists := bf.mapOpsSet[cacheLineIdx]; !exists {
+			// Check length to avoid double map lookup (auto-initializes on first append)
+			if len(bf.mapOpsSet[cacheLineIdx]) == 0 {
 				bf.usedIndicesSet = append(bf.usedIndicesSet, cacheLineIdx)
 			}
 			bf.mapOpsSet[cacheLineIdx] = append(bf.mapOpsSet[cacheLineIdx], struct{ wordIdx, bitOffset uint64 }{
@@ -626,7 +628,8 @@ func (bf *CacheOptimizedBloomFilter) getBitCacheOptimized(positions []uint64) bo
 			bitOffset := bitPos % 64
 
 			// Track first use of this cache line index
-			if _, exists := bf.mapOps[cacheLineIdx]; !exists {
+			// Check length to avoid double map lookup (auto-initializes on first append)
+			if len(bf.mapOps[cacheLineIdx]) == 0 {
 				bf.usedIndicesGet = append(bf.usedIndicesGet, cacheLineIdx)
 			}
 			bf.mapOps[cacheLineIdx] = append(bf.mapOps[cacheLineIdx], opDetail{
