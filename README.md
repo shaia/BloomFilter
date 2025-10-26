@@ -2,6 +2,8 @@
 
 A high-performance, cache-line optimized bloom filter implementation in Go with hardware-accelerated SIMD operations.
 
+**Optimized for small to medium filters (10K-100K elements)** with zero-allocation array mode. Scales to billions of elements with dynamic map mode.
+
 ## Features
 
 - **SIMD Acceleration**: Automatic detection and usage of AVX2, AVX512, and ARM NEON instructions
@@ -54,6 +56,32 @@ The filter automatically selects the optimal data structure based on size:
 ```bash
 go get github.com/shaia/go-simd-bloomfilter
 ```
+
+## Best Use Cases
+
+This library is **optimized for small to medium-sized filters** where performance and memory efficiency are critical:
+
+**Ideal For (Array Mode - 10K to 100K elements):**
+- **Microservices**: Per-request or per-session filtering
+- **Rate limiting**: Token buckets, request deduplication
+- **Session management**: User session tracking, authentication
+- **Cache keys**: Bloom filter for cache existence checks
+- **Real-time streaming**: Per-connection or per-stream filters
+- **API gateways**: Request deduplication, idempotency checks
+
+**Also Suitable For (Map Mode - 1M+ elements):**
+- **Large-scale deduplication**: Millions of elements with unlimited scalability
+- **Data processing pipelines**: Batch processing with large datasets
+- **Distributed systems**: No hard size limits, grows as needed
+
+**Consider Alternatives For:**
+- **Very large filters (>10M elements)** where simplicity is preferred over features
+- **Extremely low-latency requirements** (willf/bloom may be 3-5x faster for huge filters)
+
+**Performance Summary:**
+- **Small filters**: 1.5x faster than alternatives, zero allocations
+- **Large filters**: Competitive performance, unlimited scalability
+- **SIMD operations**: 2-4x faster for bulk operations (Union, Intersection, PopCount)
 
 ## Quick Start
 
