@@ -169,34 +169,34 @@ Code Quality:
 
 ### Phase 1: Pure Array (Legacy)
 ```
-✗ Fixed 200K cache line limit (12.8 MB max filter)
-✗ 14.4 MB overhead per instance
-✓ Fast for small filters
-✗ Not scalable
+- Fixed 200K cache line limit (12.8 MB max filter)
+- 14.4 MB overhead per instance
+- Fast for small filters
+- Not scalable
 ```
 
 ### Phase 2: Hybrid Array/Map (Current)
 ```
-✓ Array mode: ≤10K cache lines (small filters)
+- Array mode: ≤10K cache lines (small filters)
   - Zero allocations
   - 720 KB overhead
   - 1.5x faster than alternatives
 
-✓ Map mode: >10K cache lines (large filters)
+- Map mode: >10K cache lines (large filters)
   - Unlimited scalability
   - Dynamic memory
   - Competitive performance
 
-✓ Automatic mode selection
-✓ No configuration needed
+- Automatic mode selection
+- No configuration needed
 ```
 
 ### Phase 3: Future (Planned)
 ```
-○ Paged array mode (documented in FUTURE_PAGED_ARRAY_OPTIMIZATION.md)
-○ 100K-10M element sweet spot
-○ 2-3x speedup for large filters
-○ Bridge gap between array and map
+- Paged array mode (documented in FUTURE_PAGED_ARRAY_OPTIMIZATION.md)
+- 100K-10M element sweet spot
+- 2-3x speedup for large filters
+- Bridge gap between array and map
 ```
 
 ---
@@ -299,10 +299,10 @@ go tool pprof -http=:8080 results/cpu_latest.prof
 - Production status: Ready
 
 ### Cleanup Completed
-- ✅ Removed competitive benchmark code (moved to separate project)
-- ✅ Removed unused MaxCacheLines constant
-- ✅ Removed external dependencies (willf/bloom)
-- ✅ Cleaned up legacy code comments
+- - Removed competitive benchmark code (moved to separate project)
+- - Removed unused MaxCacheLines constant
+- - Removed external dependencies (willf/bloom)
+- - Cleaned up legacy code comments
 
 ### Next Maintenance
 - Archive profiles older than 6 months

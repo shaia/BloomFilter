@@ -179,19 +179,19 @@ if cacheLineCount <= 10000 {
 ## Implementation Considerations
 
 ### Pros
-✅ O(1) access (2 array lookups vs 1 map hash)
-✅ Lazy allocation (only allocates what's needed)
-✅ Zero hot-path allocations after warmup
-✅ Scales to 1M cache lines (536 MB filters)
-✅ Better memory than pure arrays for medium filters
-✅ Much faster than maps
+- O(1) access (2 array lookups vs 1 map hash)
+- Lazy allocation (only allocates what's needed)
+- Zero hot-path allocations after warmup
+- Scales to 1M cache lines (536 MB filters)
+- Better memory than pure arrays for medium filters
+- Much faster than maps
 
 ### Cons
-⚠️ More complex than pure array/map approaches
-⚠️ Slightly slower than pure arrays (2× vs 1×, but still very fast)
-⚠️ More memory than maps for medium filters
-⚠️ Fixed upper limit (1M cache lines)
-⚠️ Requires tuning page size for optimal performance
+- More complex than pure array/map approaches
+- Slightly slower than pure arrays (2× vs 1×, but still very fast)
+- More memory than maps for medium filters
+- Fixed upper limit (1M cache lines)
+- Requires tuning page size for optimal performance
 
 ### Potential Issues
 

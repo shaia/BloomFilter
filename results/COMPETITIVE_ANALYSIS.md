@@ -146,7 +146,7 @@ shaia: Map allocations for cache line grouping
 
 ## Performance by Use Case
 
-### ✅ Use shaia/go-simd-bloomfilter when:
+### - Use shaia/go-simd-bloomfilter when:
 
 1. **Small Filters (10K-100K elements)**
    - Microservices with per-request filters
@@ -169,7 +169,7 @@ shaia: Map allocations for cache line grouping
    - Frequently accessed filters
    - **Result**: Better cache utilization
 
-### ⚠️ Use willf/bloom when:
+### - Use willf/bloom when:
 
 1. **Large Filters (>1M elements)**
    - Big data processing
@@ -218,7 +218,7 @@ shaia: Map allocations for cache line grouping
 
 ### Short-Term (Current Branch)
 
-1. **✅ Merge clear() Optimization**
+1. **- Merge clear() Optimization**
    - Already delivers 41% improvement in hot path
    - Ready for production use
 

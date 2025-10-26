@@ -162,10 +162,10 @@ if len(bf.mapMap[cacheLineIdx]) == 0 {
 ```
 
 **Benefits:**
-1. ✅ More idiomatic Go code
-2. ✅ Leverages language semantics (auto-init to zero values)
-3. ✅ Clearer intent (checking if slice is empty)
-4. ✅ Simpler bytecode generation
+1. - More idiomatic Go code
+2. - Leverages language semantics (auto-init to zero values)
+3. - Clearer intent (checking if slice is empty)
+4. - Simpler bytecode generation
 
 ## Memory Access Pattern Analysis
 
@@ -238,13 +238,13 @@ Microbenchmarks can show variance due to:
 4. **Memory allocator state**: Different heap layouts
 
 The **profiling data is more reliable** than raw benchmark times for this optimization because it shows:
-- ✅ `mapaccess2_fast64` completely eliminated
-- ✅ Simpler code path in profile
-- ✅ Reduced instruction count
+- - `mapaccess2_fast64` completely eliminated
+- - Simpler code path in profile
+- - Reduced instruction count
 
 ## Recommendations
 
-### ✅ Merge This Optimization
+### - Merge This Optimization
 1. **Sound engineering**: Eliminates unnecessary work
 2. **Better code quality**: More idiomatic Go
 3. **Future-proof**: Better baseline for optimizations
@@ -263,10 +263,10 @@ The **profiling data is more reliable** than raw benchmark times for this optimi
 ## Conclusion
 
 The double lookup elimination is a **solid optimization** that:
-- ✅ Removes `mapaccess2_fast64` overhead (0.17s, 2.00% CPU)
-- ✅ Simplifies code with idiomatic Go patterns
-- ✅ Provides better baseline for future improvements
-- ✅ No correctness or complexity trade-offs
+- - Removes `mapaccess2_fast64` overhead (0.17s, 2.00% CPU)
+- - Simplifies code with idiomatic Go patterns
+- - Provides better baseline for future improvements
+- - No correctness or complexity trade-offs
 
 While microbenchmark variance shows small fluctuations, the **profiling data confirms** the optimization is working as intended. The code is now cleaner and more efficient.
 

@@ -179,7 +179,7 @@ func (bf *CacheOptimizedBloomFilter) setBitCacheOptimized(positions []uint64) {
 
 ## Use Cases
 
-### ✅ Best for Array Mode (≤ 10K cache lines / ~5 MB)
+### - Best for Array Mode (≤ 10K cache lines / ~5 MB)
 
 1. **Web Request Deduplication**
    - 10K-100K requests/session
@@ -196,7 +196,7 @@ func (bf *CacheOptimizedBloomFilter) setBitCacheOptimized(positions []uint64) {
    - Fast membership tests
    - Memory not critical
 
-### ✅ Best for Map Mode (> 10K cache lines / > 5 MB)
+### - Best for Map Mode (> 10K cache lines / > 5 MB)
 
 1. **Large-Scale Deduplication**
    - Billions of URLs
@@ -302,11 +302,11 @@ bf := NewCacheOptimizedBloomFilter(1_000_000_000, 0.01)
 
 ### Advantages
 
-✅ **Automatic optimization** - No configuration needed
-✅ **95% memory reduction** for small filters
-✅ **Unlimited scaling** for large filters
-✅ **Zero performance regression** for existing use cases
-✅ **Backward compatible** - API unchanged
+- **Automatic optimization** - No configuration needed
+- **95% memory reduction** for small filters
+- **Unlimited scaling** for large filters
+- **Zero performance regression** for existing use cases
+- **Backward compatible** - API unchanged
 
 ### Trade-offs
 

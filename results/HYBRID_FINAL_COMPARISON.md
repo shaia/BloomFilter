@@ -11,12 +11,12 @@ Complete performance analysis comparing the hybrid array/map implementation agai
 
 | Aspect | Array-Only | Hybrid | Change |
 |--------|-----------|--------|--------|
-| **Small filters (10K)** | 0 allocs | **0 allocs** | ✅ Same |
-| **Large filters (1M)** | 0 allocs | **12K allocs** | ⚠️ Map mode |
-| **Memory overhead (10K)** | 14.4 MB | **720 KB** | ✅ **95% reduction** |
-| **Max filter size** | 12.8 MB | **Unlimited** | ✅ **Infinite scale** |
-| **Performance (10K)** | Baseline | **-7%** | ⚠️ Slight slower |
-| **Performance (1M)** | Baseline | **-15%** | ⚠️ Map overhead |
+| **Small filters (10K)** | 0 allocs | **0 allocs** | - Same |
+| **Large filters (1M)** | 0 allocs | **12K allocs** | - Map mode |
+| **Memory overhead (10K)** | 14.4 MB | **720 KB** | - **95% reduction** |
+| **Max filter size** | 12.8 MB | **Unlimited** | - **Infinite scale** |
+| **Performance (10K)** | Baseline | **-7%** | - Slight slower |
+| **Performance (1M)** | Baseline | **-15%** | - Map overhead |
 
 ## Detailed Benchmark Results
 
@@ -142,10 +142,10 @@ Function Distribution:
 
 ```
 Small/Medium Filters (Array mode):
-  Allocations: 0 B/op, 0 allocs/op  ✅ Perfect
+  Allocations: 0 B/op, 0 allocs/op  - Perfect
 
 Large Filters (Map mode):
-  Allocations: 144 B/op, 11-12 allocs/op  ⚠️ Expected for maps
+  Allocations: 144 B/op, 11-12 allocs/op  - Expected for maps
 
 Breakdown per 1000 operations:
   - Map insertions: ~60 allocs
@@ -165,7 +165,7 @@ Array-Only:
   Memory: 1000 × 14.4 MB = 14.4 GB  ❌ Massive waste
 
 Hybrid:
-  Memory: 1000 × 715 KB = 715 MB    ✅ 95% reduction
+  Memory: 1000 × 715 KB = 715 MB    - 95% reduction
 
 Savings: 13.7 GB (95% reduction)
 ```
@@ -202,7 +202,7 @@ Array-Only:
   Allocations: 0
 
 Hybrid:
-  Performance: ~61 ns/op  ✅ Actually faster!
+  Performance: ~61 ns/op  - Actually faster!
   Memory: 715 KB
   Allocations: 0
 ```
@@ -314,7 +314,7 @@ Looking at the full benchmark (BenchmarkBloomFilterWithSIMD):
 
 ### For v0.1.0 Release
 
-✅ **Use the Hybrid Implementation**
+- **Use the Hybrid Implementation**
 
 **Reasons:**
 1. 95% memory reduction for common use cases
@@ -349,16 +349,16 @@ const ArrayModeThreshold = 50000  // ~25 MB filters
 The hybrid implementation is a **clear win** for the v0.1.0 release:
 
 ### Wins
-- ✅ **95% memory reduction** for small filters (14.4 MB → 720 KB)
-- ✅ **Unlimited scalability** (1B+ elements now possible)
-- ✅ **Still fast** (57-500 ns/op depending on size)
-- ✅ **Zero allocations** for small/medium filters
-- ✅ **Backward compatible**
+- - **95% memory reduction** for small filters (14.4 MB → 720 KB)
+- - **Unlimited scalability** (1B+ elements now possible)
+- - **Still fast** (57-500 ns/op depending on size)
+- - **Zero allocations** for small/medium filters
+- - **Backward compatible**
 
 ### Trade-offs
-- ⚠️ 2-7% slower for small/medium filters
-- ⚠️ ~15% slower for large filters (but they work now!)
-- ⚠️ Map allocations for large filters (144 B/op)
+- - 2-7% slower for small/medium filters
+- - ~15% slower for large filters (but they work now!)
+- - Map allocations for large filters (144 B/op)
 
 ### Verdict
 

@@ -4,14 +4,14 @@ A high-performance, cache-line optimized bloom filter implementation in Go with 
 
 ## Features
 
-- **🚀 SIMD Acceleration**: Automatic detection and usage of AVX2, AVX512, and ARM NEON instructions
-- **⚡ Cache-Optimized**: 64-byte aligned memory structures for optimal CPU cache performance
-- **🎯 Hybrid Architecture**: Automatic array/map mode selection for optimal performance across all filter sizes
-- **🌍 Cross-Platform**: Supports x86_64 (Intel/AMD) and ARM64 architectures
-- **📊 High Performance**: 2.2x - 3.5x speedup with SIMD over scalar implementations
-- **💾 Memory Efficient**: 95% memory reduction for small filters, unlimited scalability for large filters
-- **⚡ Zero Allocations**: Array mode operations with zero per-operation allocations for small filters
-- **✅ Production Ready**: Comprehensive test suite with 100% correctness validation
+- **SIMD Acceleration**: Automatic detection and usage of AVX2, AVX512, and ARM NEON instructions
+- **Cache-Optimized**: 64-byte aligned memory structures for optimal CPU cache performance
+- **Hybrid Architecture**: Automatic array/map mode selection for optimal performance across all filter sizes
+- **Cross-Platform**: Supports x86_64 (Intel/AMD) and ARM64 architectures
+- **High Performance**: 2.2x - 3.5x speedup with SIMD over scalar implementations
+- **Memory Efficient**: 95% memory reduction for small filters, unlimited scalability for large filters
+- **Zero Allocations**: Array mode operations with zero per-operation allocations for small filters
+- **Production Ready**: Comprehensive test suite with 100% correctness validation
 
 ## Performance
 
@@ -314,11 +314,11 @@ func HasSIMD() bool    // Check for any SIMD support
 
 | Architecture | SIMD Support | Status |
 |--------------|--------------|--------|
-| x86_64 (Intel/AMD) | AVX2 | ✅ Implemented & Tested |
-| x86_64 (Intel/AMD) | AVX512 | 🔄 Placeholder |
-| ARM64 (Apple Silicon) | NEON | ✅ Implemented |
-| ARM64 (Other) | NEON | ✅ Implemented |
-| Other | Scalar | ✅ Optimized Fallback |
+| x86_64 (Intel/AMD) | AVX2 | Implemented & Tested |
+| x86_64 (Intel/AMD) | AVX512 | Placeholder |
+| ARM64 (Apple Silicon) | NEON | Implemented |
+| ARM64 (Other) | NEON | Implemented |
+| Other | Scalar | Optimized Fallback |
 
 ## Contributing
 
