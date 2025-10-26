@@ -51,4 +51,9 @@ echo "To view interactive flamegraph:"
 echo "   go tool pprof -http=:8080 $RESULTS_DIR/cpu_${DATE}.prof"
 echo ""
 echo "All results in: $RESULTS_DIR/"
-ls -lh "$RESULTS_DIR"/*_${DATE}.* 2>/dev/null || true
+FILES=("$RESULTS_DIR"/*_${DATE}.*)
+if [ -e "${FILES[0]}" ]; then
+    ls -lh "${FILES[@]}"
+else
+    echo "No result files found for this benchmark run."
+fi
