@@ -1,10 +1,10 @@
-package bloomfilter
+package hash
 
 import "unsafe"
 
-// hashOptimized1 implements FNV-1a hash with optimized chunking for cache efficiency.
+// Optimized1 implements FNV-1a hash with optimized chunking for cache efficiency.
 // Processes data in 32-byte chunks (AVX2-friendly) for better performance.
-func hashOptimized1(data []byte) uint64 {
+func Optimized1(data []byte) uint64 {
 	const (
 		fnvOffsetBasis = 14695981039346656037
 		fnvPrime       = 1099511628211
@@ -51,9 +51,9 @@ func hashOptimized1(data []byte) uint64 {
 	return hash
 }
 
-// hashOptimized2 implements a variant hash function with different constants.
+// Optimized2 implements a variant hash function with different constants.
 // Using two independent hash functions provides better distribution.
-func hashOptimized2(data []byte) uint64 {
+func Optimized2(data []byte) uint64 {
 	const (
 		seed = 0x9e3779b97f4a7c15
 		mult = 0xc6a4a7935bd1e995

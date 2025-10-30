@@ -63,17 +63,17 @@ func TestHybridModeSelection(t *testing.T) {
 
 			// Verify the correct structures are initialized
 			if bf.IsArrayMode() {
-				if bf.storage.arrayOps == nil || bf.storage.arrayOpsSet == nil || bf.storage.arrayMap == nil {
+				if bf.storage.ArrayOps == nil || bf.storage.ArrayOpsSet == nil || bf.storage.ArrayMap == nil {
 					t.Errorf("%s: array mode selected but array structures not initialized", tt.name)
 				}
-				if bf.storage.mapOps != nil || bf.storage.mapOpsSet != nil || bf.storage.mapMap != nil {
+				if bf.storage.MapOps != nil || bf.storage.MapOpsSet != nil || bf.storage.MapMap != nil {
 					t.Errorf("%s: array mode selected but map structures were initialized", tt.name)
 				}
 			} else {
-				if bf.storage.mapOps == nil || bf.storage.mapOpsSet == nil || bf.storage.mapMap == nil {
+				if bf.storage.MapOps == nil || bf.storage.MapOpsSet == nil || bf.storage.MapMap == nil {
 					t.Errorf("%s: map mode selected but map structures not initialized", tt.name)
 				}
-				if bf.storage.arrayOps != nil || bf.storage.arrayOpsSet != nil || bf.storage.arrayMap != nil {
+				if bf.storage.ArrayOps != nil || bf.storage.ArrayOpsSet != nil || bf.storage.ArrayMap != nil {
 					t.Errorf("%s: map mode selected but array structures were initialized", tt.name)
 				}
 			}

@@ -5,7 +5,9 @@ import (
 	"math"
 	"unsafe"
 
+	"github.com/shaia/BloomFilter/internal/hash"
 	"github.com/shaia/BloomFilter/internal/simd"
+	"github.com/shaia/BloomFilter/internal/storage"
 )
 
 // CacheOptimizedBloomFilter uses cache line aligned storage with hybrid array/map optimization.
@@ -24,13 +26,7 @@ type CacheOptimizedBloomFilter struct {
 	simdOps simd.Operations
 
 	// Hybrid storage mode (abstracts array/map logic)
-	storage *storageMode
-}
-
-// opDetail represents a bit operation within a cache line (word index and bit offset).
-type opDetail struct {
-	wordIdx   uint64
-	bitOffset uint64
+	storage *storage.Mode
 }
 
 // CacheStats provides detailed statistics about the bloom filter
@@ -91,7 +87,7 @@ func NewCacheOptimizedBloomFilter(expectedElements uint64, falsePositiveRate flo
 		positions:        make([]uint64, hashCount),
 		cacheLineIndices: make([]uint64, hashCount),
 		simdOps:          simd.Get(), // Initialize SIMD operations once
-		storage:          newStorageMode(cacheLineCount, hashCount),
+		storage:          storage.New(cacheLineCount, hashCount, ArrayModeThreshold),
 	}
 
 	return bf
@@ -224,7 +220,7 @@ func (bf *CacheOptimizedBloomFilter) EstimatedFPP() float64 {
 
 // IsArrayMode returns true if the filter is using array mode (small filter optimization)
 func (bf *CacheOptimizedBloomFilter) IsArrayMode() bool {
-	return bf.storage.useArrayMode
+	return bf.storage.UseArrayMode
 }
 
 // GetCacheStats returns detailed statistics about the bloom filter
@@ -297,11 +293,11 @@ type CacheLine struct {
 
 // getHashPositionsOptimized generates hash positions with cache line grouping and vectorized hashing
 func (bf *CacheOptimizedBloomFilter) getHashPositionsOptimized(data []byte) {
-	h1 := hashOptimized1(data)
-	h2 := hashOptimized2(data)
+	h1 := hash.Optimized1(data)
+	h2 := hash.Optimized2(data)
 
 	// Clear the hash map efficiently
-	bf.storage.clearHashMap()
+	bf.storage.ClearHashMap()
 
 	// Generate positions and group by cache line to improve locality
 	for i := uint32(0); i < bf.hashCount; i++ {
@@ -310,12 +306,12 @@ func (bf *CacheOptimizedBloomFilter) getHashPositionsOptimized(data []byte) {
 		cacheLineIdx := bitPos / BitsPerCacheLine
 
 		bf.positions[i] = bitPos
-		bf.storage.addHashPosition(cacheLineIdx, bitPos)
+		bf.storage.AddHashPosition(cacheLineIdx, bitPos)
 	}
 
 	// Store unique cache line indices for prefetching
 	bf.cacheLineIndices = bf.cacheLineIndices[:0]
-	for _, cacheLineIdx := range bf.storage.getUsedHashIndices() {
+	for _, cacheLineIdx := range bf.storage.GetUsedHashIndices() {
 		bf.cacheLineIndices = append(bf.cacheLineIndices, cacheLineIdx)
 	}
 }
@@ -335,7 +331,7 @@ func (bf *CacheOptimizedBloomFilter) prefetchCacheLines() {
 // setBitCacheOptimized sets multiple bits with cache line awareness
 func (bf *CacheOptimizedBloomFilter) setBitCacheOptimized(positions []uint64) {
 	// Clear the set map efficiently
-	bf.storage.clearSetMap()
+	bf.storage.ClearSetMap()
 
 	// Group operations by cache line to minimize cache misses
 	for _, bitPos := range positions {
@@ -343,16 +339,16 @@ func (bf *CacheOptimizedBloomFilter) setBitCacheOptimized(positions []uint64) {
 		wordInCacheLine := (bitPos % BitsPerCacheLine) / 64
 		bitOffset := bitPos % 64
 
-		bf.storage.addSetOperation(cacheLineIdx, wordInCacheLine, bitOffset)
+		bf.storage.AddSetOperation(cacheLineIdx, wordInCacheLine, bitOffset)
 	}
 
 	// Process each cache line's operations together
-	for _, cacheLineIdx := range bf.storage.getUsedSetIndices() {
-		ops := bf.storage.getSetOperations(cacheLineIdx)
+	for _, cacheLineIdx := range bf.storage.GetUsedSetIndices() {
+		ops := bf.storage.GetSetOperations(cacheLineIdx)
 		if len(ops) > 0 && cacheLineIdx < bf.cacheLineCount {
 			cacheLine := &bf.cacheLines[cacheLineIdx]
 			for _, op := range ops {
-				cacheLine.words[op.wordIdx] |= 1 << op.bitOffset
+				cacheLine.words[op.WordIdx] |= 1 << op.BitOffset
 			}
 		}
 	}
@@ -361,7 +357,7 @@ func (bf *CacheOptimizedBloomFilter) setBitCacheOptimized(positions []uint64) {
 // getBitCacheOptimized checks multiple bits with cache line awareness
 func (bf *CacheOptimizedBloomFilter) getBitCacheOptimized(positions []uint64) bool {
 	// Clear the get map efficiently
-	bf.storage.clearGetMap()
+	bf.storage.ClearGetMap()
 
 	// Group bit checks by cache line to improve locality
 	for _, bitPos := range positions {
@@ -369,12 +365,12 @@ func (bf *CacheOptimizedBloomFilter) getBitCacheOptimized(positions []uint64) bo
 		wordInCacheLine := (bitPos % BitsPerCacheLine) / 64
 		bitOffset := bitPos % 64
 
-		bf.storage.addGetOperation(cacheLineIdx, wordInCacheLine, bitOffset)
+		bf.storage.AddGetOperation(cacheLineIdx, wordInCacheLine, bitOffset)
 	}
 
 	// Check each cache line's bits together
-	for _, cacheLineIdx := range bf.storage.getUsedGetIndices() {
-		ops := bf.storage.getGetOperations(cacheLineIdx)
+	for _, cacheLineIdx := range bf.storage.GetUsedGetIndices() {
+		ops := bf.storage.GetGetOperations(cacheLineIdx)
 		if len(ops) == 0 {
 			continue
 		}
@@ -384,7 +380,7 @@ func (bf *CacheOptimizedBloomFilter) getBitCacheOptimized(positions []uint64) bo
 
 		cacheLine := &bf.cacheLines[cacheLineIdx]
 		for _, op := range ops {
-			if (cacheLine.words[op.wordIdx] & (1 << op.bitOffset)) == 0 {
+			if (cacheLine.words[op.WordIdx] & (1 << op.BitOffset)) == 0 {
 				return false
 			}
 		}
