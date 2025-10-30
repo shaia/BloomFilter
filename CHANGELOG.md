@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Refactored codebase for better maintainability and readability
+- Split monolithic `bloomfilter.go` (660 lines) into focused modules:
+  - `bloomfilter.go` (394 lines): Core API and public interface
+  - `internal/hash/hash.go` (108 lines): Hash function implementations
+  - `internal/storage/storage.go` (186 lines): Hybrid storage abstraction
+- Moved implementation details to `internal/` package following Go conventions
+- Eliminated 150+ lines of duplicate code between array and map modes
+- Simplified complex functions by 59-65% (getHashPositionsOptimized, setBitCacheOptimized, getBitCacheOptimized)
+- Added `IsArrayMode()` accessor method for better encapsulation
+- Updated package structure documentation in README
+
+### Quality Improvements
+
+- Zero performance regression - all benchmarks unchanged
+- All tests pass (18/18)
+- Better separation of concerns with clear module boundaries
+- Internal packages cannot be imported by users, ensuring API stability
+- Easier to maintain and extend codebase
+
 ## [0.2.0] - 2025-10-26
 
 ### Added

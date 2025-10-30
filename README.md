@@ -119,21 +119,28 @@ func main() {
 
 ```
 BloomFilter/
-├── bloomfilter.go              # Core bloom filter implementation
+├── bloomfilter.go              # Core bloom filter API (public interface)
 ├── *_test.go                   # Comprehensive test suite
-├── internal/simd/              # SIMD package (architecture-specific)
-│   ├── simd.go                # Interface & runtime detection
-│   ├── fallback.go            # Optimized scalar implementation
-│   ├── amd64/                 # x86-64 SIMD (AVX2)
-│   │   ├── avx2.go           # Assembly declarations
-│   │   └── avx2.s            # AVX2 assembly code
-│   └── arm64/                 # ARM64 SIMD (NEON)
-│       ├── neon_asm.go       # Assembly declarations
-│       └── neon.s            # NEON assembly code
+├── internal/                   # Internal implementation (not importable by users)
+│   ├── hash/                   # Hash function implementations
+│   │   └── hash.go            # FNV-1a and variant hash functions
+│   ├── storage/                # Hybrid storage abstraction
+│   │   └── storage.go         # Array/map mode logic
+│   └── simd/                   # SIMD package (architecture-specific)
+│       ├── simd.go            # Interface & runtime detection
+│       ├── fallback.go        # Optimized scalar implementation
+│       ├── amd64/             # x86-64 SIMD (AVX2)
+│       │   ├── avx2.go       # Assembly declarations
+│       │   └── avx2.s        # AVX2 assembly code
+│       └── arm64/             # ARM64 SIMD (NEON)
+│           ├── neon_asm.go   # Assembly declarations
+│           └── neon.s        # NEON assembly code
 ├── docs/examples/             # Usage examples
 │   └── basic/example.go      # Complete example
 └── Makefile                   # Build automation
 ```
+
+**Note:** The `internal/` package follows Go conventions - it cannot be imported by external packages, ensuring a clean public API while allowing internal refactoring without breaking changes.
 
 ## Usage Examples
 

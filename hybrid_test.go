@@ -55,25 +55,25 @@ func TestHybridModeSelection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			bf := NewCacheOptimizedBloomFilter(tt.elements, tt.fpr)
 
-			if bf.useArrayMode != tt.expectArrayMode {
+			if bf.IsArrayMode() != tt.expectArrayMode {
 				t.Errorf("%s: expected array mode=%v, got=%v\n  Cache lines: %d, Threshold: %d\n  %s",
-					tt.name, tt.expectArrayMode, bf.useArrayMode,
+					tt.name, tt.expectArrayMode, bf.IsArrayMode(),
 					bf.cacheLineCount, ArrayModeThreshold, tt.description)
 			}
 
 			// Verify the correct structures are initialized
-			if bf.useArrayMode {
-				if bf.arrayOps == nil || bf.arrayOpsSet == nil || bf.arrayMap == nil {
+			if bf.IsArrayMode() {
+				if bf.storage.ArrayOps == nil || bf.storage.ArrayOpsSet == nil || bf.storage.ArrayMap == nil {
 					t.Errorf("%s: array mode selected but array structures not initialized", tt.name)
 				}
-				if bf.mapOps != nil || bf.mapOpsSet != nil || bf.mapMap != nil {
+				if bf.storage.MapOps != nil || bf.storage.MapOpsSet != nil || bf.storage.MapMap != nil {
 					t.Errorf("%s: array mode selected but map structures were initialized", tt.name)
 				}
 			} else {
-				if bf.mapOps == nil || bf.mapOpsSet == nil || bf.mapMap == nil {
+				if bf.storage.MapOps == nil || bf.storage.MapOpsSet == nil || bf.storage.MapMap == nil {
 					t.Errorf("%s: map mode selected but map structures not initialized", tt.name)
 				}
-				if bf.arrayOps != nil || bf.arrayOpsSet != nil || bf.arrayMap != nil {
+				if bf.storage.ArrayOps != nil || bf.storage.ArrayOpsSet != nil || bf.storage.ArrayMap != nil {
 					t.Errorf("%s: map mode selected but array structures were initialized", tt.name)
 				}
 			}
@@ -81,7 +81,7 @@ func TestHybridModeSelection(t *testing.T) {
 			t.Logf("✓ %s: mode=%s, cache_lines=%d, bits=%d",
 				tt.name,
 				func() string {
-					if bf.useArrayMode {
+					if bf.IsArrayMode() {
 						return "ARRAY"
 					}
 					return "MAP"
@@ -108,7 +108,7 @@ func TestHybridModeCorrectness(t *testing.T) {
 			bf := NewCacheOptimizedBloomFilter(tt.elements, tt.fpr)
 
 			mode := "ARRAY"
-			if !bf.useArrayMode {
+			if !bf.IsArrayMode() {
 				mode = "MAP"
 			}
 			t.Logf("Testing %s mode with %d elements", mode, tt.elements)
@@ -176,7 +176,7 @@ func TestHybridMemoryFootprint(t *testing.T) {
 			var overheadBytes uint64
 			mode := "ARRAY"
 
-			if bf.useArrayMode {
+			if bf.IsArrayMode() {
 				// Array mode: fixed overhead
 				// 3 arrays × 10K elements × 24 bytes/slice = ~720KB
 				overheadBytes = ArrayModeThreshold * 24 * 3
@@ -199,7 +199,7 @@ func TestHybridMemoryFootprint(t *testing.T) {
 			t.Logf("  Overhead %%: %.1f%%", float64(overheadBytes)/float64(totalBytes)*100)
 
 			// Array mode should have predictable overhead
-			if bf.useArrayMode {
+			if bf.IsArrayMode() {
 				expectedOverhead := uint64(ArrayModeThreshold * 24 * 3)
 				if overheadBytes != expectedOverhead {
 					t.Errorf("Array mode overhead mismatch: expected %d, got %d",
@@ -231,7 +231,7 @@ func TestLargeScaleHybrid(t *testing.T) {
 			bf := NewCacheOptimizedBloomFilter(tt.elements, tt.fpr)
 
 			mode := "ARRAY"
-			if !bf.useArrayMode {
+			if !bf.IsArrayMode() {
 				mode = "MAP"
 			}
 
