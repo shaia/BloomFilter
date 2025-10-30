@@ -1,8 +1,5 @@
 package storage
 
-// Mode handles the hybrid array/map storage abstraction.
-// This encapsulates the logic for choosing between array mode (small filters)
-// and map mode (large filters) without duplicating code.
 // OpDetail represents a bit operation within a cache line (word index and bit offset).
 type OpDetail struct {
 	WordIdx   uint64
@@ -10,6 +7,8 @@ type OpDetail struct {
 }
 
 // Mode handles the hybrid array/map storage abstraction.
+// This encapsulates the logic for choosing between array mode (small filters)
+// and map mode (large filters) without duplicating code.
 type Mode struct {
 	UseArrayMode bool
 
