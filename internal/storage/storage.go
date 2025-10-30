@@ -6,6 +6,13 @@ type OpDetail struct {
 	BitOffset uint64
 }
 
+// SetDetail represents a set operation within a cache line (word index and bit offset).
+// This is used specifically for setBitCacheOptimized operations.
+type SetDetail struct {
+	WordIdx   uint64
+	BitOffset uint64
+}
+
 // Mode handles the hybrid array/map storage abstraction.
 // This encapsulates the logic for choosing between array mode (small filters)
 // and map mode (large filters) without duplicating code.
@@ -14,12 +21,12 @@ type Mode struct {
 
 	// Array-based storage (for small filters, zero-overhead indexing)
 	ArrayOps    *[10000][]OpDetail
-	ArrayOpsSet *[10000][]struct{ WordIdx, BitOffset uint64 }
+	ArrayOpsSet *[10000][]SetDetail
 	ArrayMap    *[10000][]uint64
 
 	// Map-based storage (for large filters, dynamic scaling)
 	MapOps    map[uint64][]OpDetail
-	MapOpsSet map[uint64][]struct{ WordIdx, BitOffset uint64 }
+	MapOpsSet map[uint64][]SetDetail
 	MapMap    map[uint64][]uint64
 
 	// Track which indices are in use for fast clearing
@@ -42,13 +49,13 @@ func New(cacheLineCount uint64, hashCount uint32, arrayModeThreshold uint64) *Mo
 	if useArrayMode {
 		// Small filter: use arrays for zero-overhead indexing
 		s.ArrayOps = &[10000][]OpDetail{}
-		s.ArrayOpsSet = &[10000][]struct{ WordIdx, BitOffset uint64 }{}
+		s.ArrayOpsSet = &[10000][]SetDetail{}
 		s.ArrayMap = &[10000][]uint64{}
 	} else {
 		// Large filter: use maps for dynamic scaling
 		estimatedCapacity := int(hashCount / 4)
 		s.MapOps = make(map[uint64][]OpDetail, estimatedCapacity)
-		s.MapOpsSet = make(map[uint64][]struct{ WordIdx, BitOffset uint64 }, estimatedCapacity)
+		s.MapOpsSet = make(map[uint64][]SetDetail, estimatedCapacity)
 		s.MapMap = make(map[uint64][]uint64, estimatedCapacity)
 	}
 
@@ -115,7 +122,7 @@ func (s *Mode) AddSetOperation(cacheLineIdx, WordIdx, BitOffset uint64) {
 		if len(s.ArrayOpsSet[cacheLineIdx]) == 0 {
 			s.UsedIndicesSet = append(s.UsedIndicesSet, cacheLineIdx)
 		}
-		s.ArrayOpsSet[cacheLineIdx] = append(s.ArrayOpsSet[cacheLineIdx], struct{ WordIdx, BitOffset uint64 }{
+		s.ArrayOpsSet[cacheLineIdx] = append(s.ArrayOpsSet[cacheLineIdx], SetDetail{
 			WordIdx: WordIdx, BitOffset: BitOffset,
 		})
 	} else {
@@ -123,14 +130,14 @@ func (s *Mode) AddSetOperation(cacheLineIdx, WordIdx, BitOffset uint64) {
 		if len(s.MapOpsSet[cacheLineIdx]) == 0 {
 			s.UsedIndicesSet = append(s.UsedIndicesSet, cacheLineIdx)
 		}
-		s.MapOpsSet[cacheLineIdx] = append(s.MapOpsSet[cacheLineIdx], struct{ WordIdx, BitOffset uint64 }{
+		s.MapOpsSet[cacheLineIdx] = append(s.MapOpsSet[cacheLineIdx], SetDetail{
 			WordIdx: WordIdx, BitOffset: BitOffset,
 		})
 	}
 }
 
 // getSetOperations returns all set operations for a given cache line.
-func (s *Mode) GetSetOperations(cacheLineIdx uint64) []struct{ WordIdx, BitOffset uint64 } {
+func (s *Mode) GetSetOperations(cacheLineIdx uint64) []SetDetail {
 	if s.UseArrayMode {
 		return s.ArrayOpsSet[cacheLineIdx]
 	}
