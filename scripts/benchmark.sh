@@ -108,12 +108,6 @@ echo ""
 echo "Updating results/README.md..."
 TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
 FOLDER_NAME=$(basename "$RESULTS_DIR")
-
-# Extract key metrics from benchmark results
-TOTAL_BENCHMARKS=$(grep "^Benchmark" "$RESULTS_DIR/benchmark_full_suite.txt" 2>/dev/null | wc -l)
-SIMD_METRICS=$(grep "BenchmarkSIMDvsScalar" "$RESULTS_DIR/simd_comparison.txt" 2>/dev/null | head -4)
-
-# Update README with sed (create backup, then replace)
 README_PATH="${RESULTS_BASE}/README.md"
 
 # Update timestamp
