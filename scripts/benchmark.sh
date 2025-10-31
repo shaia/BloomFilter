@@ -32,9 +32,18 @@ fi
 
 # Run all benchmarks with CPU profiling
 echo "Running all benchmarks with CPU profiling..."
-go test -bench=. -cpuprofile="$RESULTS_DIR/cpu_profile.prof" -run=^$ -benchtime=1s > "$RESULTS_DIR/profiled_benchmarks.txt"
-echo "Saved CPU profile to: $RESULTS_DIR/cpu_profile.prof"
+go test -bench=. -cpuprofile="$RESULTS_DIR/cpu_profile.prof" -run=^$ -benchtime=2s > "$RESULTS_DIR/profiled_benchmarks.txt" 2>&1
+PROFILE_EXIT_CODE=$?
 echo "Saved benchmark to: $RESULTS_DIR/profiled_benchmarks.txt"
+
+if [ -s "$RESULTS_DIR/cpu_profile.prof" ]; then
+    echo "Saved CPU profile to: $RESULTS_DIR/cpu_profile.prof ($(stat -f%z "$RESULTS_DIR/cpu_profile.prof" 2>/dev/null || stat -c%s "$RESULTS_DIR/cpu_profile.prof" 2>/dev/null || echo "unknown") bytes)"
+else
+    echo "WARNING: CPU profile is empty or not generated"
+    if [ $PROFILE_EXIT_CODE -ne 0 ]; then
+        echo "Benchmark command exited with code: $PROFILE_EXIT_CODE"
+    fi
+fi
 
 # Generate profile analysis
 echo "Generating profile analysis..."
