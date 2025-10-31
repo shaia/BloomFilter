@@ -13,11 +13,11 @@ BloomFilter/
 └── tests/
     ├── README.md                    # Tests directory documentation
     ├── benchmark/
-    │   └── bloomfilter_benchmark_test.go  # Performance benchmarks
+    │   ├── bloomfilter_benchmark_test.go               # Performance benchmarks
+    │   └── bloomfilter_storage_mode_benchmark_test.go  # Storage mode benchmarks
     └── integration/
-        ├── bloomfilter_simd_comparison_test.go         # SIMD comparison tests (build tag: simd_comparison)
-        ├── bloomfilter_storage_mode_test.go            # Storage mode selection tests
-        └── bloomfilter_storage_mode_benchmark_test.go  # Storage mode benchmarks
+        ├── bloomfilter_simd_comparison_test.go  # SIMD comparison tests (build tag: simd_comparison)
+        └── bloomfilter_storage_mode_test.go     # Storage mode selection tests
 ```
 
 ## Test Categories
@@ -41,6 +41,7 @@ Performance benchmarks for comprehensive performance analysis.
 
 **Files:**
 - `bloomfilter_benchmark_test.go` - Comprehensive performance benchmarks
+- `bloomfilter_storage_mode_benchmark_test.go` - Storage mode performance benchmarks
 
 **Running:**
 ```bash
@@ -49,6 +50,9 @@ go test -bench=. -benchmem ./...
 
 # Specific benchmark
 go test -bench=BenchmarkInsertion -benchmem ./tests/benchmark
+
+# Storage mode benchmarks
+go test -bench=BenchmarkHybridModes -benchmem ./tests/benchmark
 
 # With CPU profiling
 go test -bench=BenchmarkInsertion -cpuprofile=cpu.prof ./tests/benchmark
@@ -61,18 +65,17 @@ Tests that verify interactions between components and cross-package functionalit
 **Files:**
 - `bloomfilter_simd_comparison_test.go` - SIMD vs fallback performance validation (build tag: `simd_comparison`)
 - `bloomfilter_storage_mode_test.go` - Hybrid storage mode selection tests (array vs map)
-- `bloomfilter_storage_mode_benchmark_test.go` - Storage mode performance benchmarks
 
 **Running:**
 ```bash
 # All integration tests (without build tags)
 go test -v ./tests/integration
 
+# Storage mode selection tests
+go test -v ./tests/integration -run=TestHybridMode
+
 # SIMD comparison tests (requires build tag)
 go test -tags=simd_comparison -v ./tests/integration -run=TestSIMDPerformanceImprovement
-
-# Integration benchmarks
-go test -bench=. ./tests/integration
 
 # SIMD comparison benchmarks
 go test -tags=simd_comparison -bench=BenchmarkSIMDvsScalar ./tests/integration
