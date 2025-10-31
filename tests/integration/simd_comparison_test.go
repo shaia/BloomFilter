@@ -1,12 +1,13 @@
 //go:build simd_comparison
 
-package bloomfilter
+package integration
 
 import (
 	"fmt"
 	"testing"
 	"unsafe"
 
+	bloomfilter "github.com/shaia/BloomFilter"
 	"github.com/shaia/BloomFilter/internal/simd"
 )
 
@@ -123,7 +124,7 @@ func BenchmarkSIMDvsScalar(b *testing.B) {
 // TestSIMDPerformanceImprovement validates that SIMD is faster than fallback
 func TestSIMDPerformanceImprovement(t *testing.T) {
 	// Skip if no SIMD available
-	if !HasSIMD() {
+	if !bloomfilter.HasSIMD() {
 		t.Skip("No SIMD support available on this platform")
 	}
 
@@ -394,7 +395,7 @@ func BenchmarkBloomFilterWithSIMD(b *testing.B) {
 			// Test with current SIMD settings
 			b.Run("WithSIMD", func(b *testing.B) {
 				// Setup bloom filter once (exclude from timing)
-				bf := NewCacheOptimizedBloomFilter(uint64(size), 0.01)
+				bf := bloomfilter.NewCacheOptimizedBloomFilter(uint64(size), 0.01)
 				for _, data := range testData {
 					bf.AddString(data)
 				}
