@@ -30,11 +30,11 @@ else
     echo "SIMD comparison benchmarks failed" > "$RESULTS_DIR/simd_comparison.txt"
 fi
 
-# Run bloom filter benchmarks with CPU profiling
-echo "Running bloom filter benchmarks with CPU profiling..."
-go test -bench=BenchmarkBloomFilterWithSIMD -cpuprofile="$RESULTS_DIR/cpu_profile.prof" -run=^$ -benchtime=2s > "$RESULTS_DIR/bloom_benchmark.txt"
+# Run all benchmarks with CPU profiling
+echo "Running all benchmarks with CPU profiling..."
+go test -bench=. -cpuprofile="$RESULTS_DIR/cpu_profile.prof" -run=^$ -benchtime=1s > "$RESULTS_DIR/profiled_benchmarks.txt"
 echo "Saved CPU profile to: $RESULTS_DIR/cpu_profile.prof"
-echo "Saved benchmark to: $RESULTS_DIR/bloom_benchmark.txt"
+echo "Saved benchmark to: $RESULTS_DIR/profiled_benchmarks.txt"
 
 # Generate profile analysis
 echo "Generating profile analysis..."
@@ -50,7 +50,11 @@ echo ""
 echo "Benchmark complete! Results saved to $RESULTS_DIR/"
 echo ""
 echo "Quick Summary:"
-grep "BenchmarkBloomFilterWithSIMD" "$RESULTS_DIR/bloom_benchmark.txt" | tail -3
+echo "Total benchmarks run:"
+grep "^Benchmark" "$RESULTS_DIR/benchmark_full_suite.txt" | wc -l
+echo ""
+echo "Sample results:"
+grep "^Benchmark" "$RESULTS_DIR/benchmark_full_suite.txt" | head -5
 echo ""
 
 # Update results/README.md with latest results
@@ -59,7 +63,7 @@ TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
 FOLDER_NAME=$(basename "$RESULTS_DIR")
 
 # Extract key metrics from benchmark results
-BLOOM_METRICS=$(grep "BenchmarkBloomFilterWithSIMD" "$RESULTS_DIR/bloom_benchmark.txt" | head -3)
+TOTAL_BENCHMARKS=$(grep "^Benchmark" "$RESULTS_DIR/benchmark_full_suite.txt" 2>/dev/null | wc -l)
 SIMD_METRICS=$(grep "BenchmarkSIMDvsScalar" "$RESULTS_DIR/simd_comparison.txt" 2>/dev/null | head -4)
 
 # Update README with sed (create backup, then replace)
