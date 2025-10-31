@@ -6,11 +6,11 @@ This directory contains benchmark results and performance analysis data for the 
 
 ## Latest Benchmark Run
 
-**Last Updated:** Not yet run with automated script
+**Last Updated:** 2025-10-31 16:45:39
 
-**Results Folder:** N/A
+**Results Folder:** run_20251031_163225_analysis
 
-**Status:** Awaiting first automated benchmark run
+**Status:** Benchmark completed successfully
 
 ---
 
@@ -55,8 +55,8 @@ bash scripts/benchmark.sh
 This creates a timestamped folder: `results/run_YYYYMMDD_HHMMSS_analysis/` containing:
 - Full benchmark suite results
 - SIMD comparison benchmarks
-- CPU profile data
-- Profile analysis (text and tree format)
+- CPU profile data (separate profiles for main and SIMD benchmarks)
+- Profile analysis (text and tree format for each profile)
 
 ### Comprehensive Profiling
 
@@ -81,11 +81,14 @@ ls -la
 
 **Interactive profile viewer:**
 ```bash
-# CPU profile in browser
-go tool pprof -http=:8080 results/run_*/cpu_profile.prof
+# Main benchmarks CPU profile in browser
+go tool pprof -http=:8080 results/run_*/cpu_profile_main.prof
+
+# SIMD benchmarks CPU profile in browser
+go tool pprof -http=:8081 results/run_*/cpu_profile_simd.prof
 
 # Memory profile
-go tool pprof -http=:8081 results/profile_*/mem.prof
+go tool pprof -http=:8082 results/profile_*/mem.prof
 
 # Execution trace viewer
 go tool trace results/profile_*/trace.out
@@ -93,11 +96,17 @@ go tool trace results/profile_*/trace.out
 
 **Text analysis:**
 ```bash
-# View profile analysis
-cat results/run_*/profile_text.txt
+# View main benchmarks profile analysis
+cat results/run_*/profile_main_text.txt
 
-# View call tree
-cat results/run_*/profile_tree.txt
+# View main benchmarks call tree
+cat results/run_*/profile_main_tree.txt
+
+# View SIMD benchmarks profile analysis
+cat results/run_*/profile_simd_text.txt
+
+# View SIMD benchmarks call tree
+cat results/run_*/profile_simd_tree.txt
 ```
 
 ---
@@ -134,12 +143,15 @@ results/
 ├── README.md                           # This file (tracked in git)
 ├── benchmark_analyzer.ipynb            # Analysis tool (tracked in git)
 ├── run_YYYYMMDD_HHMMSS_analysis/      # Benchmark runs (not tracked)
-│   ├── benchmark_full_suite.txt
-│   ├── simd_comparison.txt
-│   ├── bloom_benchmark.txt
-│   ├── cpu_profile.prof
-│   ├── profile_text.txt
-│   └── profile_tree.txt
+│   ├── benchmark_full_suite.txt       # All benchmarks results
+│   ├── simd_comparison.txt            # SIMD vs scalar comparison
+│   ├── profiled_benchmarks.txt        # Profiled benchmark output
+│   ├── cpu_profile_main.prof          # Main benchmarks CPU profile
+│   ├── cpu_profile_simd.prof          # SIMD benchmarks CPU profile
+│   ├── profile_main_text.txt          # Main profile analysis (text)
+│   ├── profile_main_tree.txt          # Main profile call tree
+│   ├── profile_simd_text.txt          # SIMD profile analysis (text)
+│   └── profile_simd_tree.txt          # SIMD profile call tree
 └── profile_YYYYMMDD_HHMMSS_analysis/  # Profile runs (not tracked)
     ├── cpu.prof, mem.prof, etc.
     └── various analysis files

@@ -1,9 +1,11 @@
-package bloomfilter
+package bloomfilter_test
 
 import (
 	"fmt"
 	"testing"
 	"unsafe"
+
+	bloomfilter "github.com/shaia/BloomFilter"
 )
 
 // Benchmark array mode vs map mode for different filter sizes
@@ -22,7 +24,7 @@ func BenchmarkHybridModes(b *testing.B) {
 
 	for _, bm := range benchmarks {
 		b.Run(bm.name+"_Add", func(b *testing.B) {
-			bf := NewCacheOptimizedBloomFilter(bm.elements, bm.fpr)
+			bf := bloomfilter.NewCacheOptimizedBloomFilter(bm.elements, bm.fpr)
 
 			data := make([]byte, 8)
 			b.ResetTimer()
@@ -33,13 +35,14 @@ func BenchmarkHybridModes(b *testing.B) {
 				bf.Add(data)
 			}
 
-			b.ReportMetric(float64(bf.cacheLineCount), "cache_lines")
-			b.ReportMetric(float64(bf.bitCount)/8/1024/1024, "MB")
+			stats := bf.GetCacheStats()
+			b.ReportMetric(float64(stats.CacheLineCount), "cache_lines")
+			b.ReportMetric(float64(stats.BitCount)/8/1024/1024, "MB")
 			b.SetBytes(8)
 		})
 
 		b.Run(bm.name+"_Contains", func(b *testing.B) {
-			bf := NewCacheOptimizedBloomFilter(bm.elements, bm.fpr)
+			bf := bloomfilter.NewCacheOptimizedBloomFilter(bm.elements, bm.fpr)
 
 			// Pre-populate with some data
 			data := make([]byte, 8)
@@ -56,7 +59,8 @@ func BenchmarkHybridModes(b *testing.B) {
 				_ = bf.Contains(data)
 			}
 
-			b.ReportMetric(float64(bf.cacheLineCount), "cache_lines")
+			stats := bf.GetCacheStats()
+			b.ReportMetric(float64(stats.CacheLineCount), "cache_lines")
 			b.SetBytes(8)
 
 			})
@@ -81,7 +85,7 @@ func BenchmarkHybridMemoryAllocation(b *testing.B) {
 			b.ReportAllocs()
 
 			for i := 0; i < b.N; i++ {
-				bf := NewCacheOptimizedBloomFilter(size.elements, size.fpr)
+				bf := bloomfilter.NewCacheOptimizedBloomFilter(size.elements, size.fpr)
 				_ = bf
 			}
 		})
@@ -103,7 +107,7 @@ func BenchmarkHybridThroughput(b *testing.B) {
 
 	for _, cfg := range configs {
 		b.Run(cfg.name, func(b *testing.B) {
-			bf := NewCacheOptimizedBloomFilter(cfg.elements, cfg.fpr)
+			bf := bloomfilter.NewCacheOptimizedBloomFilter(cfg.elements, cfg.fpr)
 
 
 			b.ResetTimer()
@@ -146,14 +150,15 @@ func BenchmarkHybridCrossoverPoint(b *testing.B) {
 		}
 
 		b.Run(name, func(b *testing.B) {
-			bf := NewCacheOptimizedBloomFilter(size, 0.01)
+			bf := bloomfilter.NewCacheOptimizedBloomFilter(size, 0.01)
+			stats := bf.GetCacheStats()
 
 			mode := "ARRAY"
 			if !bf.IsArrayMode() {
 				mode = "MAP"
 			}
 			b.Logf("Mode: %s, Cache lines: %d, Threshold: %d",
-				mode, bf.cacheLineCount, ArrayModeThreshold)
+				mode, stats.CacheLineCount, bloomfilter.ArrayModeThreshold)
 
 			data := make([]byte, 8)
 			b.ResetTimer()
@@ -165,7 +170,8 @@ func BenchmarkHybridCrossoverPoint(b *testing.B) {
 				_ = bf.Contains(data)
 			}
 
-			b.ReportMetric(float64(bf.cacheLineCount), "cache_lines")
+			stats = bf.GetCacheStats()
+			b.ReportMetric(float64(stats.CacheLineCount), "cache_lines")
 			b.SetBytes(16) // 8 bytes for Add + 8 for Contains
 		})
 	}

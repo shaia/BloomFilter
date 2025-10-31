@@ -9,14 +9,15 @@ The project follows Go best practices for test organization:
 ```
 BloomFilter/
 ├── bloomfilter_test.go              # Core functionality tests
-├── benchmark_test.go                # Performance benchmarks
-├── simd_test.go                     # SIMD capability detection tests
-├── storage_mode_test.go             # Storage mode selection tests (array vs map)
-├── storage_mode_benchmark_test.go   # Storage mode performance benchmarks
+├── bloomfilter_simd_test.go         # SIMD capability detection tests
 └── tests/
     ├── README.md                    # Tests directory documentation
+    ├── benchmark/
+    │   ├── bloomfilter_benchmark_test.go               # Performance benchmarks
+    │   └── bloomfilter_storage_mode_benchmark_test.go  # Storage mode benchmarks
     └── integration/
-        └── simd_comparison_test.go  # SIMD comparison integration tests (build tag: simd_comparison)
+        ├── bloomfilter_simd_comparison_test.go  # SIMD comparison tests (build tag: simd_comparison)
+        └── bloomfilter_storage_mode_test.go     # Storage mode selection tests
 ```
 
 ## Test Categories
@@ -27,21 +28,20 @@ Located in the root package directory, these test individual components and func
 
 **Files:**
 - `bloomfilter_test.go` - Core Bloom filter operations
-- `simd_test.go` - SIMD capability detection
-- `storage_mode_test.go` - Storage mode selection logic
+- `bloomfilter_simd_test.go` - SIMD capability detection
 
 **Running:**
 ```bash
 go test -v ./...
 ```
 
-### 2. Benchmarks (Root Package)
+### 2. Benchmarks (tests/benchmark/)
 
-Performance benchmarks for the main package functionality.
+Performance benchmarks for comprehensive performance analysis.
 
 **Files:**
-- `benchmark_test.go` - Comprehensive performance benchmarks
-- `storage_mode_benchmark_test.go` - Array vs Map storage mode benchmarks
+- `bloomfilter_benchmark_test.go` - Comprehensive performance benchmarks
+- `bloomfilter_storage_mode_benchmark_test.go` - Storage mode performance benchmarks
 
 **Running:**
 ```bash
@@ -49,31 +49,36 @@ Performance benchmarks for the main package functionality.
 go test -bench=. -benchmem ./...
 
 # Specific benchmark
-go test -bench=BenchmarkInsertion -benchmem
+go test -bench=BenchmarkInsertion -benchmem ./tests/benchmark
+
+# Storage mode benchmarks
+go test -bench=BenchmarkHybridModes -benchmem ./tests/benchmark
 
 # With CPU profiling
-go test -bench=BenchmarkInsertion -cpuprofile=cpu.prof
+go test -bench=BenchmarkInsertion -cpuprofile=cpu.prof ./tests/benchmark
 ```
 
 ### 3. Integration Tests (tests/integration/)
 
-Special tests that require build tags or test cross-package functionality.
+Tests that verify interactions between components and cross-package functionality.
 
 **Files:**
-- `simd_comparison_test.go` - SIMD vs fallback performance validation
-
-**Build Tag:** `simd_comparison`
+- `bloomfilter_simd_comparison_test.go` - SIMD vs fallback performance validation (build tag: `simd_comparison`)
+- `bloomfilter_storage_mode_test.go` - Hybrid storage mode selection tests (array vs map)
 
 **Running:**
 ```bash
-# All integration tests
-go test -tags=simd_comparison -v ./tests/integration
+# All integration tests (without build tags)
+go test -v ./tests/integration
 
-# Specific test
+# Storage mode selection tests
+go test -v ./tests/integration -run=TestHybridMode
+
+# SIMD comparison tests (requires build tag)
 go test -tags=simd_comparison -v ./tests/integration -run=TestSIMDPerformanceImprovement
 
-# Integration benchmarks
-go test -tags=simd_comparison -bench=. ./tests/integration
+# SIMD comparison benchmarks
+go test -tags=simd_comparison -bench=BenchmarkSIMDvsScalar ./tests/integration
 ```
 
 ## Running Tests
@@ -153,9 +158,9 @@ See [BENCHMARK_WORKFLOW.md](BENCHMARK_WORKFLOW.md) for details.
 - Include size/scale in sub-benchmarks (e.g., `Size_1K`, `Size_1M`)
 
 ### File Names
-- `*_test.go` - Test files (e.g., `bloomfilter_test.go`)
-- `*_benchmark_test.go` - Dedicated benchmark files (e.g., `storage_mode_benchmark_test.go`)
-- Match the file being tested when possible
+- `bloomfilter_*_test.go` - Test files with descriptive names (e.g., `bloomfilter_simd_test.go`)
+- `bloomfilter_*_benchmark_test.go` - Dedicated benchmark files (e.g., `bloomfilter_storage_mode_benchmark_test.go`)
+- Use `bloomfilter_` prefix for consistency across test files
 
 ## Writing Tests
 
