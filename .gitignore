@@ -5,8 +5,14 @@
 *.so
 *.dylib
 
-# Test binary, built with `go test -c`
+# Test binaries, built with `go test -c`
 *.test
+*.test.exe
+
+# Build and test output directories
+/build/
+/output/
+/testbin/
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
@@ -47,6 +53,11 @@ coverage_pure.out
 
 # Benchmark files
 *_bench.txt
+
+# Results directory - only track README and analysis tools
+results/*
+!results/README.md
+!results/benchmark_analyzer.ipynb
 
 # Temporary files
 *.tmp
