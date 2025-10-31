@@ -33,7 +33,9 @@ fi
 # Run selected benchmarks with CPU profiling (excluding very slow ones)
 echo "Running benchmarks with CPU profiling..."
 # Exclude BenchmarkHybridMemoryAllocation and BenchmarkHybridThroughput as they take too long
-go test -bench='Benchmark(Cache|Insertion|Lookup|FalsePositives|Comprehensive|HybridModes|HybridCrossover)' -cpuprofile="$RESULTS_DIR/cpu_profile.prof" -run=^$ -benchtime=1s > "$RESULTS_DIR/profiled_benchmarks.txt" 2>&1
+# Also run BenchmarkBloomFilterWithSIMD from integration tests
+(go test -bench='Benchmark(Cache|Insertion|Lookup|FalsePositives|Comprehensive|HybridModes|HybridCrossover)' -cpuprofile="$RESULTS_DIR/cpu_profile.prof" -run=^$ -benchtime=1s && \
+ go test -tags=simd_comparison ./tests/integration -bench=BenchmarkBloomFilterWithSIMD -cpuprofile="$RESULTS_DIR/cpu_profile.prof" -run=^$ -benchtime=1s) > "$RESULTS_DIR/profiled_benchmarks.txt" 2>&1
 PROFILE_EXIT_CODE=$?
 echo "Saved benchmark to: $RESULTS_DIR/profiled_benchmarks.txt"
 
