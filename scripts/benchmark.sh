@@ -18,7 +18,7 @@ echo ""
 
 # Run full benchmark suite
 echo "Running full benchmark suite..."
-go test -bench=. -benchmem -run=^$ -benchtime=1s > "$RESULTS_DIR/benchmark_full_suite.txt"
+go test ./tests/benchmark -bench=. -benchmem -run=^$ -benchtime=1s > "$RESULTS_DIR/benchmark_full_suite.txt"
 echo "Saved to: $RESULTS_DIR/benchmark_full_suite.txt"
 
 # Run SIMD comparison benchmarks (integration tests)
@@ -34,7 +34,7 @@ fi
 echo "Running benchmarks with CPU profiling..."
 # Exclude BenchmarkHybridMemoryAllocation and BenchmarkHybridThroughput as they take too long
 # Run main package benchmarks first, then integration tests with separate profiles
-go test -bench='Benchmark(Cache|Insertion|Lookup|FalsePositives|Comprehensive|HybridModes|HybridCrossover)' -cpuprofile="$RESULTS_DIR/cpu_profile_main.prof" -run=^$ -benchtime=1s > "$RESULTS_DIR/profiled_benchmarks.txt" 2>&1
+go test ./tests/benchmark -bench='Benchmark(Cache|Insertion|Lookup|FalsePositives|Comprehensive|HybridModes|HybridCrossover)' -cpuprofile="$RESULTS_DIR/cpu_profile_main.prof" -run=^$ -benchtime=1s > "$RESULTS_DIR/profiled_benchmarks.txt" 2>&1
 MAIN_EXIT_CODE=$?
 
 # Run SIMD benchmarks with separate profile
