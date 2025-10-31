@@ -30,18 +30,21 @@ else
     echo "SIMD comparison benchmarks failed" > "$RESULTS_DIR/simd_comparison.txt"
 fi
 
-# Run all benchmarks with CPU profiling
-echo "Running all benchmarks with CPU profiling..."
-go test -bench=. -cpuprofile="$RESULTS_DIR/cpu_profile.prof" -run=^$ -benchtime=2s > "$RESULTS_DIR/profiled_benchmarks.txt" 2>&1
+# Run selected benchmarks with CPU profiling (excluding very slow ones)
+echo "Running benchmarks with CPU profiling..."
+# Exclude BenchmarkHybridMemoryAllocation and BenchmarkHybridThroughput as they take too long
+go test -bench='Benchmark(Cache|Insertion|Lookup|FalsePositives|Comprehensive|HybridModes|HybridCrossover)' -cpuprofile="$RESULTS_DIR/cpu_profile.prof" -run=^$ -benchtime=1s > "$RESULTS_DIR/profiled_benchmarks.txt" 2>&1
 PROFILE_EXIT_CODE=$?
 echo "Saved benchmark to: $RESULTS_DIR/profiled_benchmarks.txt"
 
 if [ -s "$RESULTS_DIR/cpu_profile.prof" ]; then
-    echo "Saved CPU profile to: $RESULTS_DIR/cpu_profile.prof ($(stat -f%z "$RESULTS_DIR/cpu_profile.prof" 2>/dev/null || stat -c%s "$RESULTS_DIR/cpu_profile.prof" 2>/dev/null || echo "unknown") bytes)"
+    PROFILE_SIZE=$(stat -f%z "$RESULTS_DIR/cpu_profile.prof" 2>/dev/null || stat -c%s "$RESULTS_DIR/cpu_profile.prof" 2>/dev/null || echo "0")
+    echo "Saved CPU profile to: $RESULTS_DIR/cpu_profile.prof ($PROFILE_SIZE bytes)"
 else
     echo "WARNING: CPU profile is empty or not generated"
     if [ $PROFILE_EXIT_CODE -ne 0 ]; then
         echo "Benchmark command exited with code: $PROFILE_EXIT_CODE"
+        echo "Check $RESULTS_DIR/profiled_benchmarks.txt for details"
     fi
 fi
 
