@@ -6,11 +6,11 @@ This directory contains benchmark results and performance analysis data for the 
 
 ## Latest Benchmark Run
 
-**Last Updated:** Not yet run with automated script
+**Last Updated:** 2025-10-31 10:39:48
 
-**Results Folder:** N/A
+**Results Folder:** run_20251031_103734_analysis
 
-**Status:** Awaiting first automated benchmark run
+**Status:** Benchmark completed successfully
 
 ---
 
