@@ -3,7 +3,7 @@
 # Benchmark Runner Script
 # Automatically saves all results to timestamped folders under results/
 
-set -e
+# Note: Not using set -e to allow script to continue if SIMD comparison fails
 
 RESULTS_BASE="results"
 DATE=$(date +%Y%m%d_%H%M%S)
@@ -23,8 +23,12 @@ echo "Saved to: $RESULTS_DIR/benchmark_full_suite.txt"
 
 # Run SIMD comparison benchmarks (integration tests)
 echo "Running SIMD comparison benchmarks..."
-go test -tags=simd_comparison ./tests/integration -bench=BenchmarkSIMDvsScalar -benchmem -run=^$ -benchtime=1s > "$RESULTS_DIR/simd_comparison.txt"
-echo "Saved to: $RESULTS_DIR/simd_comparison.txt"
+if go test -tags=simd_comparison ./tests/integration -bench=BenchmarkSIMDvsScalar -benchmem -run=^$ -benchtime=1s > "$RESULTS_DIR/simd_comparison.txt" 2>&1; then
+    echo "Saved to: $RESULTS_DIR/simd_comparison.txt"
+else
+    echo "WARNING: SIMD comparison benchmarks failed, continuing with other benchmarks..."
+    echo "SIMD comparison benchmarks failed" > "$RESULTS_DIR/simd_comparison.txt"
+fi
 
 # Run bloom filter benchmarks with CPU profiling
 echo "Running bloom filter benchmarks with CPU profiling..."
