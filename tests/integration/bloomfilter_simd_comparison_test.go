@@ -1,6 +1,6 @@
 //go:build simd_comparison
 
-package integration
+package bloomfilter_test
 
 import (
 	"fmt"
