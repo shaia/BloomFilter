@@ -1,10 +1,12 @@
-package bloomfilter
+package bloomfilter_test
 
 import (
 	"fmt"
 	"math/rand"
 	"testing"
 	"time"
+
+	bloomfilter "github.com/shaia/BloomFilter"
 )
 
 /*
@@ -34,7 +36,7 @@ func BenchmarkCachePerformance(b *testing.B) {
 	sizes := []uint64{10000, 100000, 1000000}
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("Size_%d", size), func(b *testing.B) {
-			bf := NewCacheOptimizedBloomFilter(size, 0.01)
+			bf := bloomfilter.NewCacheOptimizedBloomFilter(size, 0.01)
 			testData := make([]string, 1000)
 			for i := range testData {
 				testData[i] = fmt.Sprintf("test_%d", i)
@@ -68,7 +70,7 @@ func BenchmarkInsertion(b *testing.B) {
 	const numElements = 1000000
 	const fpp = 0.01
 
-	bf := NewCacheOptimizedBloomFilter(numElements, fpp)
+	bf := bloomfilter.NewCacheOptimizedBloomFilter(numElements, fpp)
 
 	// Generate test data
 	testData := make([]string, numElements)
@@ -99,7 +101,7 @@ func BenchmarkLookup(b *testing.B) {
 	const numElements = 1000000
 	const fpp = 0.01
 
-	bf := NewCacheOptimizedBloomFilter(numElements, fpp)
+	bf := bloomfilter.NewCacheOptimizedBloomFilter(numElements, fpp)
 
 	// Generate and insert test data
 	testData := make([]string, numElements)
@@ -138,7 +140,7 @@ func BenchmarkFalsePositives(b *testing.B) {
 	const fpp = 0.01
 	const testNegatives = 100000
 
-	bf := NewCacheOptimizedBloomFilter(numElements, fpp)
+	bf := bloomfilter.NewCacheOptimizedBloomFilter(numElements, fpp)
 
 	// Insert test data
 	testData := make([]string, numElements)
@@ -174,7 +176,7 @@ func BenchmarkComprehensive(b *testing.B) {
 	const fpp = 0.01
 
 	b.Run("Comprehensive_Test", func(b *testing.B) {
-		bf := NewCacheOptimizedBloomFilter(numElements, fpp)
+		bf := bloomfilter.NewCacheOptimizedBloomFilter(numElements, fpp)
 
 		// Display cache line and memory layout information (reported once)
 		stats := bf.GetCacheStats()
