@@ -151,12 +151,14 @@ func (bf *CacheOptimizedBloomFilter) AddBatch(items [][]byte) {
 		positions = make([]uint64, bf.hashCount)
 	}
 
+	// Get operation storage once for all items
+	ops := storage.GetOperationStorage(bf.storage.UseArrayMode)
+	defer storage.PutOperationStorage(ops)
+
 	// Process each item
 	for _, data := range items {
 		h1 := hash.Optimized1(data)
 		h2 := hash.Optimized2(data)
-
-		ops := storage.GetOperationStorage(bf.storage.UseArrayMode)
 
 		// Generate positions
 		for i := uint32(0); i < bf.hashCount; i++ {
@@ -168,13 +170,13 @@ func (bf *CacheOptimizedBloomFilter) AddBatch(items [][]byte) {
 			ops.AddHashPosition(cacheLineIdx, bitPos)
 		}
 
-		// Prefetch and set bits
+		// Prefetch and set bits (reusing the same ops)
 		cacheLineIndices := ops.GetUsedHashIndices()
 		bf.prefetchCacheLines(cacheLineIndices)
-		bf.setBitCacheOptimized(positions)
+		bf.setBitCacheOptimizedWithOps(positions, ops)
 
-		// Return to pool immediately after use
-		storage.PutOperationStorage(ops)
+		// Clear ops for next item (clears both hash and set operations)
+		ops.Clear()
 	}
 }
 
