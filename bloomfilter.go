@@ -171,8 +171,11 @@ func (bf *CacheOptimizedBloomFilter) AddBatch(items [][]byte) {
 		}
 
 		// Prefetch and set bits (reusing the same ops)
+		// Copy slice to avoid using pooled storage backing array
 		cacheLineIndices := ops.GetUsedHashIndices()
-		bf.prefetchCacheLines(cacheLineIndices)
+		cacheLinesCopy := make([]uint64, len(cacheLineIndices))
+		copy(cacheLinesCopy, cacheLineIndices)
+		bf.prefetchCacheLines(cacheLinesCopy)
 		bf.setBitCacheOptimizedWithOps(positions, ops)
 
 		// Clear ops for next item (clears both hash and set operations)
@@ -221,8 +224,11 @@ func (bf *CacheOptimizedBloomFilter) AddBatchString(items []string) {
 		}
 
 		// Prefetch and set bits (reusing the same ops)
+		// Copy slice to avoid using pooled storage backing array
 		cacheLineIndices := ops.GetUsedHashIndices()
-		bf.prefetchCacheLines(cacheLineIndices)
+		cacheLinesCopy := make([]uint64, len(cacheLineIndices))
+		copy(cacheLinesCopy, cacheLineIndices)
+		bf.prefetchCacheLines(cacheLinesCopy)
 		bf.setBitCacheOptimizedWithOps(positions, ops)
 
 		// Clear ops for next item (clears both hash and set operations)
@@ -269,8 +275,11 @@ func (bf *CacheOptimizedBloomFilter) AddBatchUint64(items []uint64) {
 		}
 
 		// Prefetch and set bits (reusing the same ops)
+		// Copy slice to avoid using pooled storage backing array
 		cacheLineIndices := ops.GetUsedHashIndices()
-		bf.prefetchCacheLines(cacheLineIndices)
+		cacheLinesCopy := make([]uint64, len(cacheLineIndices))
+		copy(cacheLinesCopy, cacheLineIndices)
+		bf.prefetchCacheLines(cacheLinesCopy)
 		bf.setBitCacheOptimizedWithOps(positions, ops)
 
 		// Clear ops for next item (clears both hash and set operations)

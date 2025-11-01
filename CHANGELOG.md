@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Defer-in-loop bug that caused pool exhaustion under high concurrency
 - Pool storage slice return bug that could cause data corruption
 - CAS retry limit prevents indefinite spinning under extreme contention
+- Defensive copying of pooled storage slices in AddBatch functions for consistency and future-proofing
 
 ### Quality Improvements
 
