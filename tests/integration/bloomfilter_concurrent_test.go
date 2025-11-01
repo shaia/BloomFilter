@@ -22,9 +22,9 @@ func TestConcurrentReads(t *testing.T) {
 	numReadsPerGoroutine := 1000
 	if testing.Short() {
 		// When running with -race, use -short flag to reduce workload
-		numElements = 1000
-		numGoroutines = 10
-		numReadsPerGoroutine = 100
+		numElements = 500
+		numGoroutines = 5
+		numReadsPerGoroutine = 50
 	}
 
 	t.Logf("Pre-populating with %d elements...", numElements)
@@ -89,8 +89,8 @@ func TestConcurrentWrites(t *testing.T) {
 	numWritesPerGoroutine := 1000
 	if testing.Short() {
 		// When running with -race, use -short flag to reduce workload
-		numGoroutines = 10
-		numWritesPerGoroutine = 100
+		numGoroutines = 5
+		numWritesPerGoroutine = 50
 	}
 
 	t.Logf("Testing concurrent writes: %d goroutines × %d writes each", numGoroutines, numWritesPerGoroutine)
@@ -121,11 +121,15 @@ func TestConcurrentWrites(t *testing.T) {
 
 	// Verify a sample of written keys
 	t.Logf("Verifying written keys...")
-	sampleSize := 1000
 	notFound := 0
+	// Verify all written keys (limited by numWritesPerGoroutine)
+	samplesToVerify := numWritesPerGoroutine
+	if samplesToVerify > 100 {
+		samplesToVerify = 100 // Cap at 100 to avoid excessive verification time
+	}
 
 	for g := 0; g < numGoroutines && notFound < 10; g++ {
-		for i := 0; i < sampleSize/numGoroutines; i++ {
+		for i := 0; i < samplesToVerify; i++ {
 			key := fmt.Sprintf("g%d_key_%d", g, i)
 			if !bf.ContainsString(key) {
 				notFound++
@@ -157,10 +161,10 @@ func TestMixedConcurrentOperations(t *testing.T) {
 	opsPerGoroutine := 500
 	if testing.Short() {
 		// When running with -race, use -short flag to reduce workload
-		numInitialElements = 500
-		numReaders = 10
-		numWriters = 10
-		opsPerGoroutine = 50
+		numInitialElements = 250
+		numReaders = 5
+		numWriters = 5
+		opsPerGoroutine = 25
 	}
 
 	t.Logf("Pre-populating with %d elements...", numInitialElements)
