@@ -217,19 +217,19 @@ var (
 )
 
 // GetOperationStorage retrieves an operation storage from the pool
+// Objects from pool are already clean (either new or cleared on Put)
 func GetOperationStorage(useArrayMode bool) *OperationStorage {
-	var ops *OperationStorage
 	if useArrayMode {
-		ops = arrayOpsPool.Get().(*OperationStorage)
-	} else {
-		ops = mapOpsPool.Get().(*OperationStorage)
+		return arrayOpsPool.Get().(*OperationStorage)
 	}
-	ops.clear()
-	return ops
+	return mapOpsPool.Get().(*OperationStorage)
 }
 
-// PutOperationStorage returns an operation storage to the pool
+// PutOperationStorage returns an operation storage to the pool after clearing it
 func PutOperationStorage(ops *OperationStorage) {
+	// Clear before returning to pool to ensure next Get receives clean object
+	ops.clear()
+
 	if ops.UseArrayMode {
 		arrayOpsPool.Put(ops)
 	} else {
