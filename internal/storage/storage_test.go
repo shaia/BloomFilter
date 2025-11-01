@@ -12,28 +12,6 @@ func TestNewArrayMode(t *testing.T) {
 	if !s.UseArrayMode {
 		t.Errorf("Expected array mode for 5000 cache lines (threshold: 10000)")
 	}
-
-	// Verify array structures are initialized
-	if s.ArrayOps == nil {
-		t.Error("ArrayOps should be initialized in array mode")
-	}
-	if s.ArrayOpsSet == nil {
-		t.Error("ArrayOpsSet should be initialized in array mode")
-	}
-	if s.ArrayMap == nil {
-		t.Error("ArrayMap should be initialized in array mode")
-	}
-
-	// Verify map structures are nil
-	if s.MapOps != nil {
-		t.Error("MapOps should be nil in array mode")
-	}
-	if s.MapOpsSet != nil {
-		t.Error("MapOpsSet should be nil in array mode")
-	}
-	if s.MapMap != nil {
-		t.Error("MapMap should be nil in array mode")
-	}
 }
 
 // TestNewMapMode verifies map mode initialization
@@ -44,28 +22,6 @@ func TestNewMapMode(t *testing.T) {
 	if s.UseArrayMode {
 		t.Errorf("Expected map mode for 15000 cache lines (threshold: 10000)")
 	}
-
-	// Verify map structures are initialized
-	if s.MapOps == nil {
-		t.Error("MapOps should be initialized in map mode")
-	}
-	if s.MapOpsSet == nil {
-		t.Error("MapOpsSet should be initialized in map mode")
-	}
-	if s.MapMap == nil {
-		t.Error("MapMap should be initialized in map mode")
-	}
-
-	// Verify array structures are nil
-	if s.ArrayOps != nil {
-		t.Error("ArrayOps should be nil in map mode")
-	}
-	if s.ArrayOpsSet != nil {
-		t.Error("ArrayOpsSet should be nil in map mode")
-	}
-	if s.ArrayMap != nil {
-		t.Error("ArrayMap should be nil in map mode")
-	}
 }
 
 // TestThresholdBoundary verifies behavior at the threshold boundary
@@ -73,9 +29,9 @@ func TestThresholdBoundary(t *testing.T) {
 	threshold := uint64(10000)
 
 	tests := []struct {
-		name          string
-		cacheLines    uint64
-		expectArray   bool
+		name        string
+		cacheLines  uint64
+		expectArray bool
 	}{
 		{"Just below threshold", threshold - 1, true},
 		{"At threshold", threshold, true},
@@ -93,155 +49,147 @@ func TestThresholdBoundary(t *testing.T) {
 	}
 }
 
-// TestUsedIndicesInitialization verifies used indices tracking is initialized
-func TestUsedIndicesInitialization(t *testing.T) {
-	hashCount := uint32(10)
-	s := New(5000, hashCount, 10000)
+// TestOperationStoragePool tests the sync.Pool functionality
+func TestOperationStoragePool(t *testing.T) {
+	// Test array mode pool
+	ops1 := GetOperationStorage(true)
+	if !ops1.UseArrayMode {
+		t.Error("Array mode operation storage should have UseArrayMode=true")
+	}
+	if ops1.ArrayOps == nil {
+		t.Error("Array mode operation storage should have ArrayOps initialized")
+	}
+	PutOperationStorage(ops1)
 
-	// Verify slices are initialized with appropriate capacity
-	if s.UsedIndicesGet == nil {
-		t.Error("UsedIndicesGet should be initialized")
+	// Test map mode pool
+	ops2 := GetOperationStorage(false)
+	if ops2.UseArrayMode {
+		t.Error("Map mode operation storage should have UseArrayMode=false")
 	}
-	if s.UsedIndicesSet == nil {
-		t.Error("UsedIndicesSet should be initialized")
+	if ops2.MapOps == nil {
+		t.Error("Map mode operation storage should have MapOps initialized")
 	}
-	if s.UsedIndicesHash == nil {
-		t.Error("UsedIndicesHash should be initialized")
-	}
+	PutOperationStorage(ops2)
 
-	// Verify they start empty
-	if len(s.UsedIndicesGet) != 0 {
-		t.Errorf("UsedIndicesGet should start empty, got length %d", len(s.UsedIndicesGet))
+	// Test that pool reuses objects
+	ops3 := GetOperationStorage(true)
+	if ops3 == nil {
+		t.Error("Pool should return valid operation storage")
 	}
-	if len(s.UsedIndicesSet) != 0 {
-		t.Errorf("UsedIndicesSet should start empty, got length %d", len(s.UsedIndicesSet))
-	}
-	if len(s.UsedIndicesHash) != 0 {
-		t.Errorf("UsedIndicesHash should start empty, got length %d", len(s.UsedIndicesHash))
-	}
+	PutOperationStorage(ops3)
 }
 
 // TestGetOperations tests getting operations through the API
 func TestGetOperations(t *testing.T) {
-	modes := []struct {
-		name       string
-		cacheLines uint64
-	}{
-		{"Array mode", 5000},
-		{"Map mode", 15000},
-	}
+	modes := []bool{true, false} // array mode, map mode
 
-	for _, mode := range modes {
-		t.Run(mode.name, func(t *testing.T) {
-			s := New(mode.cacheLines, 10, 10000)
+	for _, useArrayMode := range modes {
+		modeName := "Map mode"
+		if useArrayMode {
+			modeName = "Array mode"
+		}
+
+		t.Run(modeName, func(t *testing.T) {
+			ops := GetOperationStorage(useArrayMode)
+			defer PutOperationStorage(ops)
 
 			// Add operations
-			s.AddGetOperation(42, 1, 5)
-			s.AddGetOperation(42, 2, 10)
+			ops.AddGetOperation(42, 1, 5)
+			ops.AddGetOperation(42, 2, 10)
 
 			// Retrieve operations
-			ops := s.GetGetOperations(42)
+			operations := ops.GetGetOperations(42)
 
-			if len(ops) != 2 {
-				t.Errorf("Expected 2 operations, got %d", len(ops))
+			if len(operations) != 2 {
+				t.Errorf("Expected 2 operations, got %d", len(operations))
 			}
 
 			// Verify operation details
-			if ops[0].WordIdx != 1 || ops[0].BitOffset != 5 {
+			if operations[0].WordIdx != 1 || operations[0].BitOffset != 5 {
 				t.Errorf("First operation incorrect: got WordIdx=%d, BitOffset=%d",
-					ops[0].WordIdx, ops[0].BitOffset)
+					operations[0].WordIdx, operations[0].BitOffset)
 			}
 
-			if ops[1].WordIdx != 2 || ops[1].BitOffset != 10 {
+			if operations[1].WordIdx != 2 || operations[1].BitOffset != 10 {
 				t.Errorf("Second operation incorrect: got WordIdx=%d, BitOffset=%d",
-					ops[1].WordIdx, ops[1].BitOffset)
+					operations[1].WordIdx, operations[1].BitOffset)
 			}
 		})
 	}
 }
 
-// TestClearGetMapArrayMode tests clearing get operations in array mode
-func TestClearGetMapArrayMode(t *testing.T) {
-	s := New(5000, 10, 10000)
+// TestClearGetMap tests clearing get operations
+func TestClearGetMap(t *testing.T) {
+	modes := []bool{true, false}
 
-	// Add some data using the proper API
-	s.AddGetOperation(10, 1, 2)
-	s.AddGetOperation(20, 3, 4)
+	for _, useArrayMode := range modes {
+		modeName := "Map mode"
+		if useArrayMode {
+			modeName = "Array mode"
+		}
 
-	// Verify data was added
-	ops10 := s.GetGetOperations(10)
-	if len(ops10) != 1 {
-		t.Errorf("Expected 1 operation at index 10, got %d", len(ops10))
-	}
+		t.Run(modeName, func(t *testing.T) {
+			ops := GetOperationStorage(useArrayMode)
+			defer PutOperationStorage(ops)
 
-	s.ClearGetMap()
+			// Add some data
+			ops.AddGetOperation(10, 1, 2)
+			ops.AddGetOperation(20, 3, 4)
 
-	// Verify cleared
-	ops10After := s.GetGetOperations(10)
-	if len(ops10After) != 0 {
-		t.Error("GetOperations[10] should be cleared")
-	}
-	if len(s.UsedIndicesGet) != 0 {
-		t.Error("UsedIndicesGet should be cleared")
-	}
-}
+			// Verify data was added
+			ops10 := ops.GetGetOperations(10)
+			if len(ops10) != 1 {
+				t.Errorf("Expected 1 operation at index 10, got %d", len(ops10))
+			}
 
-// TestClearGetMapMapMode tests clearing get operations in map mode
-func TestClearGetMapMapMode(t *testing.T) {
-	s := New(15000, 10, 10000)
+			ops.ClearGetMap()
 
-	// Add some data using the proper API
-	s.AddGetOperation(10, 1, 2)
-	s.AddGetOperation(20, 3, 4)
-
-	// Verify data was added
-	ops10 := s.GetGetOperations(10)
-	if len(ops10) != 1 {
-		t.Errorf("Expected 1 operation at index 10, got %d", len(ops10))
-	}
-
-	s.ClearGetMap()
-
-	// Verify cleared - map should be recreated
-	if len(s.MapOps) != 0 {
-		t.Errorf("MapOps should be empty after clear, got %d entries", len(s.MapOps))
+			// Verify cleared
+			ops10After := ops.GetGetOperations(10)
+			if len(ops10After) != 0 {
+				t.Error("GetOperations[10] should be cleared")
+			}
+			if len(ops.UsedIndicesGet) != 0 {
+				t.Error("UsedIndicesGet should be cleared")
+			}
+		})
 	}
 }
 
 // TestMultipleOperations tests multiple operations in both modes
 func TestMultipleOperations(t *testing.T) {
-	modes := []struct {
-		name       string
-		cacheLines uint64
-	}{
-		{"Array mode", 5000},
-		{"Map mode", 15000},
-	}
+	modes := []bool{true, false}
 
-	for _, mode := range modes {
-		t.Run(mode.name, func(t *testing.T) {
-			s := New(mode.cacheLines, 10, 10000)
+	for _, useArrayMode := range modes {
+		modeName := "Map mode"
+		if useArrayMode {
+			modeName = "Array mode"
+		}
 
-			// Add multiple operations using the proper API
+		t.Run(modeName, func(t *testing.T) {
+			ops := GetOperationStorage(useArrayMode)
+			defer PutOperationStorage(ops)
+
+			// Add multiple operations
 			for i := uint64(0); i < 100; i++ {
-				s.AddGetOperation(i, i, i%64)
+				ops.AddGetOperation(i, i, i%64)
 			}
 
 			// Verify all operations exist
 			for i := uint64(0); i < 100; i++ {
-				ops := s.GetGetOperations(i)
-				if len(ops) != 1 {
-					t.Errorf("Cache line %d: expected 1 op, got %d", i, len(ops))
+				operations := ops.GetGetOperations(i)
+				if len(operations) != 1 {
+					t.Errorf("Cache line %d: expected 1 op, got %d", i, len(operations))
 				}
 			}
 
 			// Clear and verify
-			s.ClearGetMap()
+			ops.ClearGetMap()
 
 			for i := uint64(0); i < 100; i++ {
-				ops := s.GetGetOperations(i)
-				if len(ops) != 0 {
-					t.Errorf("After clear, cache line %d should have 0 ops, got %d", i, len(ops))
+				operations := ops.GetGetOperations(i)
+				if len(operations) != 0 {
+					t.Errorf("After clear, cache line %d should have 0 ops, got %d", i, len(operations))
 				}
 			}
 		})
@@ -250,32 +198,32 @@ func TestMultipleOperations(t *testing.T) {
 
 // TestAddHashPosition tests hash position tracking
 func TestAddHashPosition(t *testing.T) {
-	modes := []struct {
-		name       string
-		cacheLines uint64
-	}{
-		{"Array mode", 5000},
-		{"Map mode", 15000},
-	}
+	modes := []bool{true, false}
 
-	for _, mode := range modes {
-		t.Run(mode.name, func(t *testing.T) {
-			s := New(mode.cacheLines, 10, 10000)
+	for _, useArrayMode := range modes {
+		modeName := "Map mode"
+		if useArrayMode {
+			modeName = "Array mode"
+		}
+
+		t.Run(modeName, func(t *testing.T) {
+			ops := GetOperationStorage(useArrayMode)
+			defer PutOperationStorage(ops)
 
 			// Add hash positions
-			s.AddHashPosition(42, 100)
-			s.AddHashPosition(42, 200)
-			s.AddHashPosition(43, 300)
+			ops.AddHashPosition(42, 100)
+			ops.AddHashPosition(42, 200)
+			ops.AddHashPosition(43, 300)
 
 			// Verify used indices
-			usedIndices := s.GetUsedHashIndices()
+			usedIndices := ops.GetUsedHashIndices()
 			if len(usedIndices) == 0 {
 				t.Error("Expected used hash indices to be tracked")
 			}
 
 			// Clear and verify
-			s.ClearHashMap()
-			usedIndicesAfter := s.GetUsedHashIndices()
+			ops.ClearHashMap()
+			usedIndicesAfter := ops.GetUsedHashIndices()
 			if len(usedIndicesAfter) != 0 {
 				t.Error("Used hash indices should be cleared")
 			}
@@ -285,46 +233,76 @@ func TestAddHashPosition(t *testing.T) {
 
 // TestSetOperations tests set operation tracking
 func TestSetOperations(t *testing.T) {
-	modes := []struct {
-		name       string
-		cacheLines uint64
-	}{
-		{"Array mode", 5000},
-		{"Map mode", 15000},
-	}
+	modes := []bool{true, false}
 
-	for _, mode := range modes {
-		t.Run(mode.name, func(t *testing.T) {
-			s := New(mode.cacheLines, 10, 10000)
+	for _, useArrayMode := range modes {
+		modeName := "Map mode"
+		if useArrayMode {
+			modeName = "Array mode"
+		}
+
+		t.Run(modeName, func(t *testing.T) {
+			ops := GetOperationStorage(useArrayMode)
+			defer PutOperationStorage(ops)
 
 			// Add set operations
-			s.AddSetOperation(10, 1, 5)
-			s.AddSetOperation(10, 2, 10)
-			s.AddSetOperation(20, 3, 15)
+			ops.AddSetOperation(10, 1, 5)
+			ops.AddSetOperation(10, 2, 10)
+			ops.AddSetOperation(20, 3, 15)
 
 			// Verify operations were added
-			ops10 := s.GetSetOperations(10)
+			ops10 := ops.GetSetOperations(10)
 			if len(ops10) != 2 {
 				t.Errorf("Expected 2 set operations at index 10, got %d", len(ops10))
 			}
 
-			ops20 := s.GetSetOperations(20)
+			ops20 := ops.GetSetOperations(20)
 			if len(ops20) != 1 {
 				t.Errorf("Expected 1 set operation at index 20, got %d", len(ops20))
 			}
 
 			// Verify used indices
-			usedIndices := s.GetUsedSetIndices()
+			usedIndices := ops.GetUsedSetIndices()
 			if len(usedIndices) == 0 {
 				t.Error("Expected used set indices to be tracked")
 			}
 
 			// Clear and verify
-			s.ClearSetMap()
-			ops10After := s.GetSetOperations(10)
+			ops.ClearSetMap()
+			ops10After := ops.GetSetOperations(10)
 			if len(ops10After) != 0 {
 				t.Error("Set operations should be cleared")
 			}
 		})
+	}
+}
+
+// TestConcurrentPoolAccess tests that the pool is safe for concurrent access
+func TestConcurrentPoolAccess(t *testing.T) {
+	const numGoroutines = 100
+	const numOperationsPerGoroutine = 1000
+
+	done := make(chan bool, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			for j := 0; j < numOperationsPerGoroutine; j++ {
+				// Alternate between array and map mode
+				useArrayMode := j%2 == 0
+				ops := GetOperationStorage(useArrayMode)
+
+				// Do some operations
+				ops.AddGetOperation(uint64(j), uint64(j), uint64(j%64))
+				_ = ops.GetUsedGetIndices()
+
+				PutOperationStorage(ops)
+			}
+			done <- true
+		}()
+	}
+
+	// Wait for all goroutines to complete
+	for i := 0; i < numGoroutines; i++ {
+		<-done
 	}
 }
