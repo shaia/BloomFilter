@@ -36,8 +36,10 @@ type OperationStorage struct {
 	UsedIndicesHash []uint64
 }
 
-// clear resets the operation storage for reuse
-func (os *OperationStorage) clear() {
+// Clear resets all operation storage to empty state, reusing allocated memory
+// This allows reusing the same OperationStorage across multiple operations
+// without returning it to the pool
+func (os *OperationStorage) Clear() {
 	if os.UseArrayMode {
 		// Clear only used indices
 		for _, idx := range os.UsedIndicesGet {
@@ -228,7 +230,7 @@ func GetOperationStorage(useArrayMode bool) *OperationStorage {
 // PutOperationStorage returns an operation storage to the pool after clearing it
 func PutOperationStorage(ops *OperationStorage) {
 	// Clear before returning to pool to ensure next Get receives clean object
-	ops.clear()
+	ops.Clear()
 
 	if ops.UseArrayMode {
 		arrayOpsPool.Put(ops)
