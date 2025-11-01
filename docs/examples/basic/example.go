@@ -38,9 +38,9 @@ func main() {
 	fmt.Printf("NEON: %t\n", bf.HasNEON())
 	fmt.Printf("SIMD Enabled: %t\n\n", bf.HasAVX2() || bf.HasAVX512() || bf.HasNEON())
 
-	// Example usage
-	fmt.Println("\nExample Usage:")
-	fmt.Println("--------------")
+	// Example 1: Basic usage
+	fmt.Println("\nExample 1: Basic Usage")
+	fmt.Println("----------------------")
 
 	filter := bf.NewCacheOptimizedBloomFilter(10000, 0.001)
 
@@ -56,5 +56,63 @@ func main() {
 	fmt.Printf("Memory aligned: %t\n", stats.Alignment == 0)
 	fmt.Printf("Cache lines used: %d\n", stats.CacheLineCount)
 	fmt.Printf("SIMD optimized: %t\n", stats.SIMDEnabled)
-	fmt.Printf("SIMD capabilities: AVX2=%t, AVX512=%t, NEON=%t\n", stats.HasAVX2, stats.HasAVX512, stats.HasNEON)
+
+	// Example 2: Batch operations (high-throughput)
+	fmt.Println("\nExample 2: Batch Operations")
+	fmt.Println("---------------------------")
+
+	filter2 := bf.NewCacheOptimizedBloomFilter(100000, 0.01)
+
+	// Batch add strings
+	urls := []string{
+		"https://example.com/page1",
+		"https://example.com/page2",
+		"https://example.com/page3",
+	}
+	filter2.AddBatchString(urls)
+
+	// Batch add uint64s
+	userIDs := []uint64{1001, 1002, 1003, 1004, 1005}
+	filter2.AddBatchUint64(userIDs)
+
+	fmt.Printf("Contains 'https://example.com/page2': %t\n", filter2.ContainsString("https://example.com/page2"))
+	fmt.Printf("Contains user ID 1003: %t\n", filter2.ContainsUint64(1003))
+	fmt.Printf("Contains user ID 9999: %t\n", filter2.ContainsUint64(9999))
+
+	// Example 3: Thread-safe concurrent operations
+	fmt.Println("\nExample 3: Thread-Safe Concurrent Operations")
+	fmt.Println("--------------------------------------------")
+
+	filter3 := bf.NewCacheOptimizedBloomFilter(100000, 0.01)
+
+	// Pre-populate
+	for i := 0; i < 1000; i++ {
+		filter3.AddUint64(uint64(i))
+	}
+
+	// Concurrent writes (safe with atomic operations)
+	done := make(chan bool, 10)
+	for g := 0; g < 10; g++ {
+		go func(goroutineID int) {
+			for i := 0; i < 100; i++ {
+				filter3.AddString(fmt.Sprintf("goroutine_%d_key_%d", goroutineID, i))
+			}
+			done <- true
+		}(g)
+	}
+
+	// Wait for all goroutines
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+
+	fmt.Printf("Thread-safe writes completed successfully\n")
+	fmt.Printf("Contains 'goroutine_5_key_50': %t\n", filter3.ContainsString("goroutine_5_key_50"))
+
+	finalStats := filter3.GetCacheStats()
+	fmt.Printf("\nFinal Statistics:\n")
+	fmt.Printf("  Total bits: %d\n", finalStats.BitCount)
+	fmt.Printf("  Bits set: %d\n", finalStats.BitsSet)
+	fmt.Printf("  Load factor: %.2f%%\n", finalStats.LoadFactor*100)
+	fmt.Printf("  Estimated FPP: %.6f\n", finalStats.EstimatedFPP)
 }
