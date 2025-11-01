@@ -16,20 +16,20 @@ func TestConcurrentReads(t *testing.T) {
 	bf := bloomfilter.NewCacheOptimizedBloomFilter(100_000, 0.01)
 
 	// Pre-populate the filter
+	// Scale down for race detector to avoid timeout during setup
 	numElements := 10000
-	t.Logf("Pre-populating with %d elements...", numElements)
-	for i := 0; i < numElements; i++ {
-		bf.AddString(fmt.Sprintf("key_%d", i))
-	}
-
-	// Test concurrent reads
-	// Scale down workload for race detector (has 5-10x overhead on sync operations)
 	numGoroutines := 100
 	numReadsPerGoroutine := 1000
 	if testing.Short() {
 		// When running with -race, use -short flag to reduce workload
+		numElements = 1000
 		numGoroutines = 10
 		numReadsPerGoroutine = 100
+	}
+
+	t.Logf("Pre-populating with %d elements...", numElements)
+	for i := 0; i < numElements; i++ {
+		bf.AddString(fmt.Sprintf("key_%d", i))
 	}
 
 	t.Logf("Testing concurrent reads: %d goroutines × %d reads each", numGoroutines, numReadsPerGoroutine)
@@ -150,15 +150,23 @@ func TestMixedConcurrentOperations(t *testing.T) {
 	bf := bloomfilter.NewCacheOptimizedBloomFilter(100_000, 0.01)
 
 	// Pre-populate
+	// Scale down for race detector to avoid timeout during setup
 	numInitialElements := 5000
+	numReaders := 25
+	numWriters := 25
+	opsPerGoroutine := 500
+	if testing.Short() {
+		// When running with -race, use -short flag to reduce workload
+		numInitialElements = 500
+		numReaders = 10
+		numWriters = 10
+		opsPerGoroutine = 50
+	}
+
 	t.Logf("Pre-populating with %d elements...", numInitialElements)
 	for i := 0; i < numInitialElements; i++ {
 		bf.AddString(fmt.Sprintf("initial_%d", i))
 	}
-
-	numReaders := 25
-	numWriters := 25
-	opsPerGoroutine := 500
 
 	t.Logf("Testing mixed operations: %d readers + %d writers × %d ops each",
 		numReaders, numWriters, opsPerGoroutine)
