@@ -155,7 +155,6 @@ func (bf *CacheOptimizedBloomFilter) AddBatch(items [][]byte) {
 		h2 := hash.Optimized2(data)
 
 		ops := storage.GetOperationStorage(bf.storage.UseArrayMode)
-		defer storage.PutOperationStorage(ops)
 
 		// Generate positions
 		for i := uint32(0); i < bf.hashCount; i++ {
@@ -171,6 +170,9 @@ func (bf *CacheOptimizedBloomFilter) AddBatch(items [][]byte) {
 		cacheLineIndices := ops.GetUsedHashIndices()
 		bf.prefetchCacheLines(cacheLineIndices)
 		bf.setBitCacheOptimized(positions)
+
+		// Return to pool immediately after use
+		storage.PutOperationStorage(ops)
 	}
 }
 
@@ -202,7 +204,6 @@ func (bf *CacheOptimizedBloomFilter) AddBatchString(items []string) {
 		h2 := hash.Optimized2(data)
 
 		ops := storage.GetOperationStorage(bf.storage.UseArrayMode)
-		defer storage.PutOperationStorage(ops)
 
 		// Generate positions
 		for i := uint32(0); i < bf.hashCount; i++ {
@@ -218,6 +219,9 @@ func (bf *CacheOptimizedBloomFilter) AddBatchString(items []string) {
 		cacheLineIndices := ops.GetUsedHashIndices()
 		bf.prefetchCacheLines(cacheLineIndices)
 		bf.setBitCacheOptimized(positions)
+
+		// Return to pool immediately after use
+		storage.PutOperationStorage(ops)
 	}
 }
 
@@ -244,7 +248,6 @@ func (bf *CacheOptimizedBloomFilter) AddBatchUint64(items []uint64) {
 		h2 := hash.Optimized2(data)
 
 		ops := storage.GetOperationStorage(bf.storage.UseArrayMode)
-		defer storage.PutOperationStorage(ops)
 
 		// Generate positions
 		for i := uint32(0); i < bf.hashCount; i++ {
@@ -260,6 +263,9 @@ func (bf *CacheOptimizedBloomFilter) AddBatchUint64(items []uint64) {
 		cacheLineIndices := ops.GetUsedHashIndices()
 		bf.prefetchCacheLines(cacheLineIndices)
 		bf.setBitCacheOptimized(positions)
+
+		// Return to pool immediately after use
+		storage.PutOperationStorage(ops)
 	}
 }
 
