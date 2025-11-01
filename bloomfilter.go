@@ -217,12 +217,12 @@ func (bf *CacheOptimizedBloomFilter) AddBatchString(items []string) {
 			ops.AddHashPosition(cacheLineIdx, bitPos)
 		}
 
-		// Prefetch and set bits
+		// Prefetch and set bits (reusing the same ops)
 		cacheLineIndices := ops.GetUsedHashIndices()
 		bf.prefetchCacheLines(cacheLineIndices)
-		bf.setBitCacheOptimized(positions)
+		bf.setBitCacheOptimizedWithOps(positions, ops)
 
-		// Clear ops for next item
+		// Clear ops for next item (clears both hash and set operations)
 		ops.Clear()
 	}
 }
@@ -263,12 +263,12 @@ func (bf *CacheOptimizedBloomFilter) AddBatchUint64(items []uint64) {
 			ops.AddHashPosition(cacheLineIdx, bitPos)
 		}
 
-		// Prefetch and set bits
+		// Prefetch and set bits (reusing the same ops)
 		cacheLineIndices := ops.GetUsedHashIndices()
 		bf.prefetchCacheLines(cacheLineIndices)
-		bf.setBitCacheOptimized(positions)
+		bf.setBitCacheOptimizedWithOps(positions, ops)
 
-		// Clear ops for next item
+		// Clear ops for next item (clears both hash and set operations)
 		ops.Clear()
 	}
 }
@@ -494,9 +494,23 @@ func (bf *CacheOptimizedBloomFilter) prefetchCacheLines(cacheLineIndices []uint6
 // - High contention: Progressive backoff reduces CPU waste
 // - Bloom filter semantics allow occasional missed bits (increases FP rate slightly)
 func (bf *CacheOptimizedBloomFilter) setBitCacheOptimized(positions []uint64) {
-	// Get operation storage from pool (thread-safe)
-	ops := storage.GetOperationStorage(bf.storage.UseArrayMode)
-	defer storage.PutOperationStorage(ops)
+	bf.setBitCacheOptimizedWithOps(positions, nil)
+}
+
+// setBitCacheOptimizedWithOps is the internal implementation that optionally accepts
+// a pre-allocated OperationStorage to avoid pool operations in batch scenarios
+func (bf *CacheOptimizedBloomFilter) setBitCacheOptimizedWithOps(positions []uint64, ops *storage.OperationStorage) {
+	// Use provided ops or get from pool
+	needsReturn := false
+	if ops == nil {
+		ops = storage.GetOperationStorage(bf.storage.UseArrayMode)
+		needsReturn = true
+		defer func() {
+			if needsReturn {
+				storage.PutOperationStorage(ops)
+			}
+		}()
+	}
 
 	// Group operations by cache line to minimize cache misses
 	for _, bitPos := range positions {
