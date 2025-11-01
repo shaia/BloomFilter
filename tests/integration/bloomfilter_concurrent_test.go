@@ -23,8 +23,14 @@ func TestConcurrentReads(t *testing.T) {
 	}
 
 	// Test concurrent reads
+	// Scale down workload for race detector (has 5-10x overhead on sync operations)
 	numGoroutines := 100
 	numReadsPerGoroutine := 1000
+	if testing.Short() {
+		// When running with -race, use -short flag to reduce workload
+		numGoroutines = 10
+		numReadsPerGoroutine = 100
+	}
 
 	t.Logf("Testing concurrent reads: %d goroutines × %d reads each", numGoroutines, numReadsPerGoroutine)
 
@@ -78,8 +84,14 @@ func TestConcurrentWrites(t *testing.T) {
 
 	bf := bloomfilter.NewCacheOptimizedBloomFilter(100_000, 0.01)
 
+	// Scale down workload for race detector (has 5-10x overhead on sync operations)
 	numGoroutines := 50
 	numWritesPerGoroutine := 1000
+	if testing.Short() {
+		// When running with -race, use -short flag to reduce workload
+		numGoroutines = 10
+		numWritesPerGoroutine = 100
+	}
 
 	t.Logf("Testing concurrent writes: %d goroutines × %d writes each", numGoroutines, numWritesPerGoroutine)
 
