@@ -4,6 +4,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	bloomfilter "github.com/shaia/BloomFilter"
 )
@@ -201,23 +202,12 @@ func TestNoHangUnderContention(t *testing.T) {
 	}()
 
 	// Wait for completion or timeout
+	// 10 seconds should be more than enough for 10,000 insertions
+	// If it takes longer, the retry mechanism has hung
 	select {
 	case <-done:
 		t.Log("SUCCESS: Retry mechanism completed without hanging")
-	case <-func() chan bool {
-		timeout := make(chan bool, 1)
-		go func() {
-			// 10 seconds should be more than enough for 10,000 insertions
-			// If it takes longer, something is wrong
-			select {
-			case <-done:
-				return
-			case <-make(chan struct{}):
-				// Never triggered, just for type compatibility
-			}
-		}()
-		return timeout
-	}():
+	case <-time.After(10 * time.Second):
 		t.Fatal("CRITICAL: Retry mechanism appears to have hung (timeout exceeded)")
 	}
 }
