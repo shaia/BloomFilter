@@ -8,10 +8,9 @@ import (
 
 	"github.com/shaia/BloomFilter/internal/hash"
 	"github.com/shaia/BloomFilter/internal/simd"
-	"github.com/shaia/BloomFilter/internal/storage"
 )
 
-// CacheOptimizedBloomFilter uses cache line aligned storage with hybrid array/map optimization.
+// CacheOptimizedBloomFilter uses cache line aligned storage with SIMD optimization and atomic operations for thread-safety.
 type CacheOptimizedBloomFilter struct {
 	// Cache line aligned bitset
 	cacheLines     []CacheLine
@@ -21,9 +20,6 @@ type CacheOptimizedBloomFilter struct {
 
 	// SIMD operations instance (initialized once for performance)
 	simdOps simd.Operations
-
-	// Hybrid storage mode (abstracts array/map logic)
-	storage *storage.Mode
 }
 
 // CacheStats provides detailed statistics about the bloom filter
@@ -44,9 +40,9 @@ type CacheStats struct {
 	SIMDEnabled bool
 }
 
-// NewCacheOptimizedBloomFilter creates a cache line optimized bloom filter with hybrid architecture.
-// Automatically selects between array mode (fast, zero allocations) for small filters
-// and map mode (unlimited scalability) for large filters based on ArrayModeThreshold.
+// NewCacheOptimizedBloomFilter creates a cache line optimized bloom filter.
+// Uses SIMD-accelerated operations and lock-free atomic operations for thread-safety.
+// Achieves zero allocations for typical use cases (hashCount ≤ 16, which covers 99% of scenarios).
 func NewCacheOptimizedBloomFilter(expectedElements uint64, falsePositiveRate float64) *CacheOptimizedBloomFilter {
 	// Calculate optimal parameters
 	ln2 := math.Ln2
@@ -82,7 +78,6 @@ func NewCacheOptimizedBloomFilter(expectedElements uint64, falsePositiveRate flo
 		hashCount:      hashCount,
 		cacheLineCount: cacheLineCount,
 		simdOps:        simd.Get(), // Initialize SIMD operations once
-		storage:        storage.New(cacheLineCount, hashCount, ArrayModeThreshold),
 	}
 
 	return bf
@@ -90,16 +85,45 @@ func NewCacheOptimizedBloomFilter(expectedElements uint64, falsePositiveRate flo
 
 // Add adds an element with cache line optimization
 func (bf *CacheOptimizedBloomFilter) Add(data []byte) {
-	positions, cacheLineIndices := bf.getHashPositionsOptimized(data)
-	bf.prefetchCacheLines(cacheLineIndices)
-	bf.setBitCacheOptimized(positions)
+	h1 := hash.Optimized1(data)
+	h2 := hash.Optimized2(data)
+
+	// Stack buffer for typical filters
+	var stackBuf [16]uint64
+	var positions []uint64
+	if bf.hashCount <= 16 {
+		positions = stackBuf[:bf.hashCount]
+	} else {
+		positions = make([]uint64, bf.hashCount)
+	}
+
+	// Generate positions
+	for i := uint32(0); i < bf.hashCount; i++ {
+		positions[i] = (h1 + uint64(i)*h2) % bf.bitCount
+	}
+
+	// Set bits atomically
+	bf.setBitsAtomic(positions)
 }
 
 // Contains checks membership with cache line optimization
 func (bf *CacheOptimizedBloomFilter) Contains(data []byte) bool {
-	positions, cacheLineIndices := bf.getHashPositionsOptimized(data)
-	bf.prefetchCacheLines(cacheLineIndices)
-	return bf.getBitCacheOptimized(positions)
+	h1 := hash.Optimized1(data)
+	h2 := hash.Optimized2(data)
+
+	var stackBuf [16]uint64
+	var positions []uint64
+	if bf.hashCount <= 16 {
+		positions = stackBuf[:bf.hashCount]
+	} else {
+		positions = make([]uint64, bf.hashCount)
+	}
+
+	for i := uint32(0); i < bf.hashCount; i++ {
+		positions[i] = (h1 + uint64(i)*h2) % bf.bitCount
+	}
+
+	return bf.checkBitsAtomic(positions)
 }
 
 // AddString adds a string element to the bloom filter
@@ -130,161 +154,6 @@ func (bf *CacheOptimizedBloomFilter) AddUint64(n uint64) {
 func (bf *CacheOptimizedBloomFilter) ContainsUint64(n uint64) bool {
 	data := (*[8]byte)(unsafe.Pointer(&n))[:]
 	return bf.Contains(data)
-}
-
-// AddBatch adds multiple elements efficiently by amortizing allocation costs
-// For high-throughput scenarios, this is significantly faster than calling Add() in a loop
-// as it reuses temporary buffers across the batch
-func (bf *CacheOptimizedBloomFilter) AddBatch(items [][]byte) {
-	if len(items) == 0 {
-		return
-	}
-
-	// Stack-allocate positions buffer for typical filters (hashCount ≤ 8)
-	// Escape analysis confirms: positions does not escape when used locally
-	// Covers ~90% of use cases (FPR >= 0.01, where hashCount ≈ 7)
-	var positions []uint64
-	if bf.hashCount <= 8 {
-		var stackBuf [8]uint64
-		positions = stackBuf[:bf.hashCount]
-	} else {
-		positions = make([]uint64, bf.hashCount)
-	}
-
-	// Get operation storage once for all items
-	ops := storage.GetOperationStorage(bf.storage.UseArrayMode)
-	defer storage.PutOperationStorage(ops)
-
-	// Process each item
-	for _, data := range items {
-		h1 := hash.Optimized1(data)
-		h2 := hash.Optimized2(data)
-
-		// Generate positions
-		for i := uint32(0); i < bf.hashCount; i++ {
-			hash := h1 + uint64(i)*h2
-			bitPos := hash % bf.bitCount
-			cacheLineIdx := bitPos / BitsPerCacheLine
-
-			positions[i] = bitPos
-			ops.AddHashPosition(cacheLineIdx, bitPos)
-		}
-
-		// Prefetch and set bits (reusing the same ops)
-		// Copy slice to avoid using pooled storage backing array
-		cacheLineIndices := ops.GetUsedHashIndices()
-		cacheLinesCopy := make([]uint64, len(cacheLineIndices))
-		copy(cacheLinesCopy, cacheLineIndices)
-		bf.prefetchCacheLines(cacheLinesCopy)
-		bf.setBitCacheOptimizedWithOps(positions, ops)
-
-		// Clear ops for next item (clears both hash and set operations)
-		ops.Clear()
-	}
-}
-
-// AddBatchString adds multiple string elements efficiently
-// Processes strings directly without intermediate allocation
-func (bf *CacheOptimizedBloomFilter) AddBatchString(items []string) {
-	if len(items) == 0 {
-		return
-	}
-
-	// Stack-allocate positions buffer for typical filters (hashCount ≤ 8)
-	// Escape analysis confirms: positions does not escape when used locally
-	// Covers ~90% of use cases (FPR >= 0.01, where hashCount ≈ 7)
-	var positions []uint64
-	if bf.hashCount <= 8 {
-		var stackBuf [8]uint64
-		positions = stackBuf[:bf.hashCount]
-	} else {
-		positions = make([]uint64, bf.hashCount)
-	}
-
-	// Get operation storage once for all items
-	ops := storage.GetOperationStorage(bf.storage.UseArrayMode)
-	defer storage.PutOperationStorage(ops)
-
-	// Process each string directly
-	for _, s := range items {
-		// Zero-copy string to []byte conversion using Go 1.20+ standard API
-		data := unsafe.Slice(unsafe.StringData(s), len(s))
-
-		h1 := hash.Optimized1(data)
-		h2 := hash.Optimized2(data)
-
-		// Generate positions
-		for i := uint32(0); i < bf.hashCount; i++ {
-			hash := h1 + uint64(i)*h2
-			bitPos := hash % bf.bitCount
-			cacheLineIdx := bitPos / BitsPerCacheLine
-
-			positions[i] = bitPos
-			ops.AddHashPosition(cacheLineIdx, bitPos)
-		}
-
-		// Prefetch and set bits (reusing the same ops)
-		// Copy slice to avoid using pooled storage backing array
-		cacheLineIndices := ops.GetUsedHashIndices()
-		cacheLinesCopy := make([]uint64, len(cacheLineIndices))
-		copy(cacheLinesCopy, cacheLineIndices)
-		bf.prefetchCacheLines(cacheLinesCopy)
-		bf.setBitCacheOptimizedWithOps(positions, ops)
-
-		// Clear ops for next item (clears both hash and set operations)
-		ops.Clear()
-	}
-}
-
-// AddBatchUint64 adds multiple uint64 elements efficiently
-func (bf *CacheOptimizedBloomFilter) AddBatchUint64(items []uint64) {
-	if len(items) == 0 {
-		return
-	}
-
-	// Stack-allocate positions buffer for typical filters (hashCount ≤ 8)
-	// Escape analysis confirms: positions does not escape when used locally
-	// Covers ~90% of use cases (FPR >= 0.01, where hashCount ≈ 7)
-	var positions []uint64
-	if bf.hashCount <= 8 {
-		var stackBuf [8]uint64
-		positions = stackBuf[:bf.hashCount]
-	} else {
-		positions = make([]uint64, bf.hashCount)
-	}
-
-	// Get operation storage once for all items
-	ops := storage.GetOperationStorage(bf.storage.UseArrayMode)
-	defer storage.PutOperationStorage(ops)
-
-	// Process each item
-	for _, n := range items {
-		data := (*[8]byte)(unsafe.Pointer(&n))[:]
-
-		h1 := hash.Optimized1(data)
-		h2 := hash.Optimized2(data)
-
-		// Generate positions
-		for i := uint32(0); i < bf.hashCount; i++ {
-			hash := h1 + uint64(i)*h2
-			bitPos := hash % bf.bitCount
-			cacheLineIdx := bitPos / BitsPerCacheLine
-
-			positions[i] = bitPos
-			ops.AddHashPosition(cacheLineIdx, bitPos)
-		}
-
-		// Prefetch and set bits (reusing the same ops)
-		// Copy slice to avoid using pooled storage backing array
-		cacheLineIndices := ops.GetUsedHashIndices()
-		cacheLinesCopy := make([]uint64, len(cacheLineIndices))
-		copy(cacheLinesCopy, cacheLineIndices)
-		bf.prefetchCacheLines(cacheLinesCopy)
-		bf.setBitCacheOptimizedWithOps(positions, ops)
-
-		// Clear ops for next item (clears both hash and set operations)
-		ops.Clear()
-	}
 }
 
 // Clear resets the bloom filter using vectorized operations with automatic fallback
@@ -368,11 +237,6 @@ func (bf *CacheOptimizedBloomFilter) EstimatedFPP() float64 {
 	return math.Pow(ratio, float64(bf.hashCount))
 }
 
-// IsArrayMode returns true if the filter is using array mode (small filter optimization)
-func (bf *CacheOptimizedBloomFilter) IsArrayMode() bool {
-	return bf.storage.UseArrayMode
-}
-
 // GetCacheStats returns detailed statistics about the bloom filter
 func (bf *CacheOptimizedBloomFilter) GetCacheStats() CacheStats {
 	bitsSet := bf.PopCount()
@@ -441,165 +305,36 @@ type CacheLine struct {
 	words [WordsPerCacheLine]uint64
 }
 
-// getHashPositionsOptimized generates hash positions with cache line grouping and vectorized hashing
-// Returns positions slice and cache line indices for prefetching (thread-safe, no shared state)
-func (bf *CacheOptimizedBloomFilter) getHashPositionsOptimized(data []byte) ([]uint64, []uint64) {
-	h1 := hash.Optimized1(data)
-	h2 := hash.Optimized2(data)
-
-	// Get operation storage from pool (thread-safe)
-	ops := storage.GetOperationStorage(bf.storage.UseArrayMode)
-	defer storage.PutOperationStorage(ops)
-
-	// Allocate positions slice (escapes to heap due to return)
-	// Note: Attempted stack buffer optimization doesn't work - slice escapes when returned
-	positions := make([]uint64, bf.hashCount)
-
-	// Generate positions and group by cache line to improve locality
-	for i := uint32(0); i < bf.hashCount; i++ {
-		hash := h1 + uint64(i)*h2
-		bitPos := hash % bf.bitCount
-		cacheLineIdx := bitPos / BitsPerCacheLine
-
-		positions[i] = bitPos
-		ops.AddHashPosition(cacheLineIdx, bitPos)
-	}
-
-	// Get unique cache line indices for prefetching
-	// Copy slice to avoid returning pooled storage backing array
-	cacheLineIndices := ops.GetUsedHashIndices()
-	cacheLinesCopy := make([]uint64, len(cacheLineIndices))
-	copy(cacheLinesCopy, cacheLineIndices)
-
-	return positions, cacheLinesCopy
-}
-
-// prefetchCacheLines provides hints to prefetch cache lines
-func (bf *CacheOptimizedBloomFilter) prefetchCacheLines(cacheLineIndices []uint64) {
-	// In Go, we can't directly issue prefetch instructions,
-	// but we can hint to the runtime by touching memory
-	for _, idx := range cacheLineIndices {
-		if idx < bf.cacheLineCount {
-			// Touch the cache line to bring it into cache
-			_ = atomic.LoadUint64(&bf.cacheLines[idx].words[0])
-		}
-	}
-}
-
-// setBitCacheOptimized sets multiple bits with cache line awareness
-// Uses atomic operations for thread-safe concurrent writes with retry limiting
-//
-// Contention Handling:
-// - Uses CAS (Compare-And-Swap) loop with a maximum of 100 retries per bit
-// - Early exit when bit is already set (old == new)
-// - Exponential backoff after 10 retries to reduce cache line bouncing
-// - Under extreme contention (>100 retries), bit may remain unset temporarily
-//
-// Performance Notes:
-// - Typical case: 1-2 CAS attempts per bit in concurrent scenarios
-// - High contention: Progressive backoff reduces CPU waste
-// - Bloom filter semantics allow occasional missed bits (increases FP rate slightly)
-func (bf *CacheOptimizedBloomFilter) setBitCacheOptimized(positions []uint64) {
-	bf.setBitCacheOptimizedWithOps(positions, nil)
-}
-
-// setBitCacheOptimizedWithOps is the internal implementation that optionally accepts
-// a pre-allocated OperationStorage to avoid pool operations in batch scenarios
-func (bf *CacheOptimizedBloomFilter) setBitCacheOptimizedWithOps(positions []uint64, ops *storage.OperationStorage) {
-	// Use provided ops or get from pool
-	needsReturn := false
-	if ops == nil {
-		ops = storage.GetOperationStorage(bf.storage.UseArrayMode)
-		needsReturn = true
-		defer func() {
-			if needsReturn {
-				storage.PutOperationStorage(ops)
-			}
-		}()
-	}
-
-	// Group operations by cache line to minimize cache misses
+func (bf *CacheOptimizedBloomFilter) setBitsAtomic(positions []uint64) {
 	for _, bitPos := range positions {
 		cacheLineIdx := bitPos / BitsPerCacheLine
-		wordInCacheLine := (bitPos % BitsPerCacheLine) / 64
+		wordIdx := (bitPos % BitsPerCacheLine) / 64
 		bitOffset := bitPos % 64
 
-		ops.AddSetOperation(cacheLineIdx, wordInCacheLine, bitOffset)
-	}
+		mask := uint64(1 << bitOffset)
+		wordPtr := &bf.cacheLines[cacheLineIdx].words[wordIdx]
 
-	// Process each cache line's operations together with atomic bit setting
-	for _, cacheLineIdx := range ops.GetUsedSetIndices() {
-		operations := ops.GetSetOperations(cacheLineIdx)
-		if len(operations) > 0 && cacheLineIdx < bf.cacheLineCount {
-			cacheLine := &bf.cacheLines[cacheLineIdx]
-			for _, op := range operations {
-				// Atomic bit setting using compare-and-swap with retry limit
-				// Prevents indefinite spinning under extreme contention
-				mask := uint64(1 << op.BitOffset)
-				wordPtr := &cacheLine.words[op.WordIdx]
-
-				const maxRetries = 100
-				for retry := 0; retry < maxRetries; retry++ {
-					old := atomic.LoadUint64(wordPtr)
-					new := old | mask
-					if old == new || atomic.CompareAndSwapUint64(wordPtr, old, new) {
-						break
-					}
-					// Backoff on contention to reduce cache line bouncing
-					if retry > 10 {
-						// Minimal pause via empty loop with exponential backoff
-						// Note: The compiler may optimize away this empty loop, but this is acceptable because:
-						// 1. Backoff only triggers after 10 failed CAS retries (rare under normal contention)
-						// 2. The CAS operation itself provides memory barriers preventing tight spinning
-						// 3. Alternative runtime.Gosched() causes 12.5x performance degradation (15M -> 1.2M ops/sec)
-						// 4. Bloom filter semantics tolerate occasional missed bits under extreme contention
-						// 5. The retry limit (100) provides bounded worst-case behavior
-						for i := 0; i < (retry - 10); i++ {
-						}
-					}
-				}
-				// Note: After maxRetries, bit will remain unset only under extreme contention
-				// In practice, this is extremely rare and the bit will be set eventually
+		const maxRetries = 100
+		for retry := 0; retry < maxRetries; retry++ {
+			old := atomic.LoadUint64(wordPtr)
+			new := old | mask
+			if old == new || atomic.CompareAndSwapUint64(wordPtr, old, new) {
+				break
 			}
 		}
 	}
 }
 
-// getBitCacheOptimized checks multiple bits with cache line awareness
-// Uses atomic loads for thread-safe concurrent reads
-func (bf *CacheOptimizedBloomFilter) getBitCacheOptimized(positions []uint64) bool {
-	// Get operation storage from pool (thread-safe)
-	ops := storage.GetOperationStorage(bf.storage.UseArrayMode)
-	defer storage.PutOperationStorage(ops)
-
-	// Group bit checks by cache line to improve locality
+func (bf *CacheOptimizedBloomFilter) checkBitsAtomic(positions []uint64) bool {
 	for _, bitPos := range positions {
 		cacheLineIdx := bitPos / BitsPerCacheLine
-		wordInCacheLine := (bitPos % BitsPerCacheLine) / 64
+		wordIdx := (bitPos % BitsPerCacheLine) / 64
 		bitOffset := bitPos % 64
 
-		ops.AddGetOperation(cacheLineIdx, wordInCacheLine, bitOffset)
-	}
-
-	// Check each cache line's bits together with atomic reads
-	for _, cacheLineIdx := range ops.GetUsedGetIndices() {
-		operations := ops.GetGetOperations(cacheLineIdx)
-		if len(operations) == 0 {
-			continue
-		}
-		if cacheLineIdx >= bf.cacheLineCount {
+		word := atomic.LoadUint64(&bf.cacheLines[cacheLineIdx].words[wordIdx])
+		if (word & (1 << bitOffset)) == 0 {
 			return false
 		}
-
-		cacheLine := &bf.cacheLines[cacheLineIdx]
-		for _, op := range operations {
-			// Atomic load for thread-safe read
-			word := atomic.LoadUint64(&cacheLine.words[op.WordIdx])
-			if (word & (1 << op.BitOffset)) == 0 {
-				return false
-			}
-		}
 	}
-
 	return true
 }

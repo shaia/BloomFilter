@@ -1,25 +1,39 @@
 # SIMD-Optimized Bloom Filter
 
-A high-performance, cache-line optimized bloom filter implementation in Go with hardware-accelerated SIMD operations.
+A high-performance, cache-line optimized bloom filter implementation in Go with hardware-accelerated SIMD operations and lock-free atomic operations.
 
-**Optimized for small to medium filters (10K-100K elements)** with zero-allocation array mode. Scales to billions of elements with dynamic map mode.
+**Optimized for performance and simplicity** with zero-allocation operations and built-in thread-safety.
 
 ## Features
 
-- **Thread-Safe**: Lock-free concurrent operations using atomic CAS with sync.Pool optimization
+- **Thread-Safe**: Lock-free concurrent operations using atomic CAS operations (no external locks required)
+- **Zero Allocations**: Stack-based buffers for typical use cases (hashCount ≤ 16, covering 99% of scenarios)
 - **SIMD Acceleration**: Automatic detection and usage of AVX2, AVX512, and ARM NEON instructions
 - **Cache-Optimized**: 64-byte aligned memory structures for optimal CPU cache performance
-- **Hybrid Architecture**: Automatic array/map mode selection for optimal performance across all filter sizes
-- **Batch Operations**: High-throughput batch Add functions with pooled resource reuse
 - **Cross-Platform**: Supports x86_64 (Intel/AMD) and ARM64 architectures
-- **High Performance**: 2.2x - 3.5x speedup with SIMD over scalar implementations
-- **Memory Efficient**: 95% memory reduction for small filters, unlimited scalability for large filters
-- **Zero Allocations**: Array mode operations with zero per-operation allocations for small filters
-- **Production Ready**: Comprehensive test suite with race detection and 100% correctness validation
+- **High Performance**: 3-4x faster than popular alternatives (willf/bloom)
+- **Simple Architecture**: ~400 lines of clean, maintainable code
+- **Production Ready**: Comprehensive test suite with race detection and correctness validation
 
 ## Performance
 
-### SIMD Speedup (Validated)
+### Real-World Performance (Intel i9-13980HX)
+
+| Operation | Simplified Atomic | Willf/Bloom | Thread-Safe Pool | Winner |
+|-----------|------------------|-------------|------------------|---------|
+| **Add** | 26.02 ns/op | 85.64 ns/op | ~400 ns/op | **3-15x faster** |
+| **Contains** | 23.41 ns/op | 90.34 ns/op | ~600 ns/op | **4-26x faster** |
+| **AddUint64** | 20.16 ns/op | N/A | ~350 ns/op | **17x faster** |
+| **Allocations** | **0 B/op** | 97 B/op | 17 B/op | **100% saved** |
+
+### Throughput (1M elements, 0.01 FPR)
+
+- **Insertions**: 18.6 million operations/second
+- **Lookups**: 35.8 million operations/second
+- **Memory**: Zero allocations on hot path
+- **False Positive Rate**: 1.02% (target: 1.0%)
+
+### SIMD Speedup
 
 | Operation | Size | SIMD | Fallback | Speedup |
 |-----------|------|------|----------|---------|
@@ -31,29 +45,6 @@ A high-performance, cache-line optimized bloom filter implementation in Go with 
 
 *Benchmarked on Intel i9-13980HX with AVX2*
 
-### Throughput
-
-- **Concurrent Writes**: 18-23M operations/second (50 goroutines)
-- **Concurrent Reads**: 10M+ operations/second (100 goroutines)
-- **Sequential Operations**: ~2M operations/second
-- **False Positive Rate**: 0.05% (target: 1.0%)
-
-### Hybrid Architecture Performance
-
-The filter automatically selects the optimal data structure based on size:
-
-| Filter Size | Mode | Add/Contains | Allocations | Memory Overhead |
-|-------------|------|--------------|-------------|-----------------|
-| **10K elements** | Array | 55-65 ns/op | 0 B/op | ~720 KB fixed |
-| **100K elements** | Array | 55-65 ns/op | 0 B/op | ~720 KB fixed |
-| **1M elements** | Map | 450-485 ns/op | 144 B/op | Dynamic |
-| **10M+ elements** | Map | 450-520 ns/op | 144 B/op | Dynamic |
-
-**Key Benefits:**
-- Small filters (≤10K cache lines): **Zero allocations**, **1.5x faster** than alternatives
-- Large filters (>10K cache lines): **Unlimited scalability**, no hard limits
-- Automatic mode selection: No configuration needed
-
 ## Installation
 
 ```bash
@@ -62,29 +53,23 @@ go get github.com/shaia/BloomFilter
 
 ## Best Use Cases
 
-This library is **optimized for small to medium-sized filters** where performance and memory efficiency are critical:
+This library is **optimized for high-performance applications** where speed and memory efficiency are critical:
 
-**Ideal For (Array Mode - 10K to 100K elements):**
-- **Microservices**: Per-request or per-session filtering
+**Ideal For:**
+- **High-frequency operations**: Millions of operations per second with zero allocations
+- **Multi-threaded applications**: Built-in thread-safety without external locks
+- **Microservices**: Per-request or per-session filtering with minimal overhead
 - **Rate limiting**: Token buckets, request deduplication
-- **Session management**: User session tracking, authentication
-- **Cache keys**: Bloom filter for cache existence checks
+- **Cache systems**: Bloom filter for cache existence checks
 - **Real-time streaming**: Per-connection or per-stream filters
 - **API gateways**: Request deduplication, idempotency checks
+- **Data processing**: Any size from small (10K) to large (100M+) elements
 
-**Also Suitable For (Map Mode - 1M+ elements):**
-- **Large-scale deduplication**: Millions of elements with unlimited scalability
-- **Data processing pipelines**: Batch processing with large datasets
-- **Distributed systems**: No hard size limits, grows as needed
-
-**Consider Alternatives For:**
-- **Very large filters (>10M elements)** where simplicity is preferred over features
-- **Extremely low-latency requirements** (willf/bloom may be 3-5x faster for huge filters)
-
-**Performance Summary:**
-- **Small filters**: 1.5x faster than alternatives, zero allocations
-- **Large filters**: Competitive performance, unlimited scalability
-- **SIMD operations**: 2-4x faster for bulk operations (Union, Intersection, PopCount)
+**Performance Characteristics:**
+- Small filters (10K-100K): 26 ns/op, zero allocations
+- Large filters (1M-10M+): 26 ns/op, zero allocations
+- SIMD operations: 2-4x faster for bulk operations (Union, Intersection, PopCount)
+- Thread-safe: No lock contention, scales with CPU cores
 
 ## Quick Start
 
@@ -100,12 +85,12 @@ func main() {
     // Create a bloom filter for 1M elements with 1% false positive rate
     filter := bf.NewCacheOptimizedBloomFilter(1000000, 0.01)
 
-    // Add elements
+    // Add elements (thread-safe, zero allocations)
     filter.AddString("example")
     filter.AddUint64(42)
     filter.Add([]byte("custom data"))
 
-    // Check membership
+    // Check membership (thread-safe, zero allocations)
     fmt.Println(filter.ContainsString("example"))  // true
     fmt.Println(filter.ContainsString("missing"))  // false (probably)
     fmt.Println(filter.ContainsUint64(42))         // true
@@ -115,6 +100,7 @@ func main() {
     fmt.Printf("SIMD enabled: %t\n", stats.SIMDEnabled)
     fmt.Printf("Memory usage: %d bytes\n", stats.MemoryUsage)
     fmt.Printf("Load factor: %.2f%%\n", stats.LoadFactor * 100)
+    fmt.Printf("Estimated FPP: %.4f%%\n", stats.EstimatedFPP * 100)
 }
 ```
 
@@ -127,8 +113,6 @@ BloomFilter/
 ├── internal/                   # Internal implementation (not importable by users)
 │   ├── hash/                   # Hash function implementations
 │   │   └── hash.go            # FNV-1a and variant hash functions
-│   ├── storage/                # Hybrid storage abstraction
-│   │   └── storage.go         # Array/map mode logic
 │   └── simd/                   # SIMD package (architecture-specific)
 │       ├── simd.go            # Interface & runtime detection
 │       ├── fallback.go        # Optimized scalar implementation
@@ -140,12 +124,35 @@ BloomFilter/
 │           └── neon.s        # NEON assembly code
 ├── docs/examples/             # Usage examples
 │   └── basic/example.go      # Complete example
-└── Makefile                   # Build automation
+└── tests/                     # Test suite
+    ├── benchmark/            # Performance benchmarks
+    └── integration/          # Integration tests
 ```
 
 **Note:** The `internal/` package follows Go conventions - it cannot be imported by external packages, ensuring a clean public API while allowing internal refactoring without breaking changes.
 
 ## Usage Examples
+
+### Thread-Safe Concurrent Usage
+
+```go
+// No locks needed - built-in thread safety!
+filter := bf.NewCacheOptimizedBloomFilter(1000000, 0.01)
+
+// Safe to use from multiple goroutines
+go func() {
+    for i := 0; i < 1000; i++ {
+        filter.AddUint64(uint64(i))
+    }
+}()
+
+go func() {
+    for i := 0; i < 1000; i++ {
+        exists := filter.ContainsUint64(uint64(i))
+        fmt.Println(exists)
+    }
+}()
+```
 
 ### SIMD Capabilities Detection
 
@@ -206,42 +213,26 @@ fmt.Printf("SIMD enabled: %t\n", stats.SIMDEnabled)
 
 ```bash
 # Build the library
-make build
+go build
 
-# Build example
-make example
-
-# Build with version info
-make binaries
+# Run example
+go run docs/examples/basic/example.go
 ```
 
 ### Testing
 
 ```bash
 # Run all tests
-go test -v .
+go test -v ./...
 
 # Run benchmarks
-go test -bench=. -benchmem
+go test -bench=. -benchmem ./tests/benchmark/...
 
-# Run SIMD comparison benchmarks
-go test -bench=BenchmarkSIMDvsScalar -benchtime=2s
+# Run with race detector
+go test -race -v ./...
 
-# Run correctness tests
-go test -run=TestSIMDCorrectness -v
-
-# Run performance validation
-go test -run=TestSIMDPerformanceImprovement -v
-```
-
-### Run Example
-
-```bash
-# Using Makefile
-make example
-
-# Or directly
-go run docs/examples/basic/example.go
+# Run integration tests
+go test -v ./tests/integration/...
 ```
 
 ## SIMD Implementation Details
@@ -308,6 +299,8 @@ type CacheStats struct {
 
 ```go
 // Creates a new bloom filter optimized for cache performance
+// Uses SIMD-accelerated operations and lock-free atomic operations for thread-safety
+// Achieves zero allocations for typical use cases (hashCount ≤ 16, covering 99% of scenarios)
 func NewCacheOptimizedBloomFilter(
     expectedElements uint64,    // Expected number of elements
     falsePositiveRate float64,  // Target false positive rate (0.0-1.0)
@@ -317,22 +310,17 @@ func NewCacheOptimizedBloomFilter(
 ### Core Methods
 
 ```go
-// Add operations (thread-safe, lock-free)
+// Add operations (thread-safe, lock-free, zero allocations)
 func (bf *CacheOptimizedBloomFilter) Add(data []byte)
 func (bf *CacheOptimizedBloomFilter) AddString(s string)
 func (bf *CacheOptimizedBloomFilter) AddUint64(n uint64)
 
-// Batch operations (optimized with pooled resources)
-func (bf *CacheOptimizedBloomFilter) AddBatch(items [][]byte)
-func (bf *CacheOptimizedBloomFilter) AddBatchString(items []string)
-func (bf *CacheOptimizedBloomFilter) AddBatchUint64(items []uint64)
-
-// Contains operations (thread-safe, lock-free)
+// Contains operations (thread-safe, lock-free, zero allocations)
 func (bf *CacheOptimizedBloomFilter) Contains(data []byte) bool
 func (bf *CacheOptimizedBloomFilter) ContainsString(s string) bool
 func (bf *CacheOptimizedBloomFilter) ContainsUint64(n uint64) bool
 
-// Bulk operations (SIMD accelerated)
+// Bulk operations (SIMD accelerated, thread-safe)
 func (bf *CacheOptimizedBloomFilter) Union(other *CacheOptimizedBloomFilter) error
 func (bf *CacheOptimizedBloomFilter) Intersection(other *CacheOptimizedBloomFilter) error
 func (bf *CacheOptimizedBloomFilter) Clear()
@@ -363,14 +351,23 @@ func HasSIMD() bool    // Check for any SIMD support
 | ARM64 (Other) | NEON | Implemented |
 | Other | Scalar | Optimized Fallback |
 
+## Performance Comparison
+
+Complete benchmark results available in [bloomfilter-benchmark](../bloomfilter-benchmark/) directory:
+
+- **[vs Willf/Bloom](../bloomfilter-benchmark/WILLF_VS_SIMPLIFIED_COMPARISON.md)**: 3-4x faster, zero allocations
+- **[vs Thread-Safe Pool](../bloomfilter-benchmark/SIMPLIFIED_VS_THREADSAFE_COMPARISON.md)**: 15-26x faster, 99.93% less memory
+- **[Complete Comparison](../bloomfilter-benchmark/COMPLETE_COMPARISON_SUMMARY.md)**: All three implementations
+
 ## Contributing
 
 Contributions are welcome! Please ensure:
 
-1. All tests pass: `go test -v .`
-2. Benchmarks show improvement: `go test -bench=.`
+1. All tests pass: `go test -v ./...`
+2. Benchmarks show improvement: `go test -bench=. -benchmem`
 3. Code is formatted: `go fmt ./...`
-4. SIMD correctness is validated: `go test -run=TestSIMDCorrectness`
+4. Race detector passes: `go test -race ./...`
+5. SIMD correctness is validated: `go test -run=TestSIMDCorrectness`
 
 ## License
 
@@ -381,3 +378,4 @@ MIT License - see LICENSE file for details.
 - SIMD optimizations inspired by modern CPU architectures
 - Cache-line optimization techniques from high-performance computing
 - Bloom filter algorithm by Burton Howard Bloom (1970)
+- Simplified atomic approach for maximum performance and simplicity
