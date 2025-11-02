@@ -141,7 +141,9 @@ func (bf *CacheOptimizedBloomFilter) AddBatch(items [][]byte) {
 	}
 
 	// Stack-allocate positions buffer for typical filters (hashCount ≤ 8)
-	// Escape analysis confirms: positions does not escape when used locally
+	// Verified with go build -gcflags='-m': stackBuf and positions do not escape
+	// - positions slice is only read in loop, never stored or passed to goroutines
+	// - setBitCacheOptimizedWithOps reads positions without capturing it
 	// Covers ~90% of use cases (FPR >= 0.01, where hashCount ≈ 7)
 	var positions []uint64
 	if bf.hashCount <= 8 {
@@ -191,7 +193,9 @@ func (bf *CacheOptimizedBloomFilter) AddBatchString(items []string) {
 	}
 
 	// Stack-allocate positions buffer for typical filters (hashCount ≤ 8)
-	// Escape analysis confirms: positions does not escape when used locally
+	// Verified with go build -gcflags='-m': stackBuf and positions do not escape
+	// - positions slice is only read in loop, never stored or passed to goroutines
+	// - setBitCacheOptimizedWithOps reads positions without capturing it
 	// Covers ~90% of use cases (FPR >= 0.01, where hashCount ≈ 7)
 	var positions []uint64
 	if bf.hashCount <= 8 {
@@ -243,7 +247,9 @@ func (bf *CacheOptimizedBloomFilter) AddBatchUint64(items []uint64) {
 	}
 
 	// Stack-allocate positions buffer for typical filters (hashCount ≤ 8)
-	// Escape analysis confirms: positions does not escape when used locally
+	// Verified with go build -gcflags='-m': stackBuf and positions do not escape
+	// - positions slice is only read in loop, never stored or passed to goroutines
+	// - setBitCacheOptimizedWithOps reads positions without capturing it
 	// Covers ~90% of use cases (FPR >= 0.01, where hashCount ≈ 7)
 	var positions []uint64
 	if bf.hashCount <= 8 {
