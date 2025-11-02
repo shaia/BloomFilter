@@ -64,12 +64,20 @@ func NewCacheOptimizedBloomFilter(expectedElements uint64, falsePositiveRate flo
 	bitCount := uint64(-float64(expectedElements) * math.Log(falsePositiveRate) / (ln2 * ln2))
 	hashCount := uint32(float64(bitCount) * ln2 / float64(expectedElements))
 
+	// Validate calculated parameters
+	if bitCount == 0 {
+		panic(fmt.Sprintf("bloomfilter: falsePositiveRate too high (%f) for %d elements, results in zero bits", falsePositiveRate, expectedElements))
+	}
+
 	if hashCount < 1 {
 		hashCount = 1
 	}
 
 	// Align to cache line boundaries (512 bits per cache line)
 	cacheLineCount := (bitCount + BitsPerCacheLine - 1) / BitsPerCacheLine
+	if cacheLineCount == 0 {
+		cacheLineCount = 1 // Ensure at least one cache line
+	}
 	bitCount = cacheLineCount * BitsPerCacheLine
 
 	// Allocate cache line aligned memory
