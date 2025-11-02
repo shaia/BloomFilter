@@ -57,23 +57,28 @@ func main() {
 	fmt.Printf("Cache lines used: %d\n", stats.CacheLineCount)
 	fmt.Printf("SIMD optimized: %t\n", stats.SIMDEnabled)
 
-	// Example 2: Batch operations (high-throughput)
-	fmt.Println("\nExample 2: Batch Operations")
-	fmt.Println("---------------------------")
+	// Example 2: Multiple operations (zero allocations for typical FPR)
+	fmt.Println("\nExample 2: Multiple Operations")
+	fmt.Println("-------------------------------")
 
 	filter2 := bf.NewCacheOptimizedBloomFilter(100000, 0.01)
 
-	// Batch add strings
+	// Add multiple strings (zero allocations when hashCount ≤ 16, which covers 99% of use cases)
+	// For very low FPR (e.g., 0.0000001) requiring hashCount > 16, heap allocation occurs
 	urls := []string{
 		"https://example.com/page1",
 		"https://example.com/page2",
 		"https://example.com/page3",
 	}
-	filter2.AddBatchString(urls)
+	for _, url := range urls {
+		filter2.AddString(url)
+	}
 
-	// Batch add uint64s
+	// Add multiple uint64s (zero allocations for typical configurations)
 	userIDs := []uint64{1001, 1002, 1003, 1004, 1005}
-	filter2.AddBatchUint64(userIDs)
+	for _, id := range userIDs {
+		filter2.AddUint64(id)
+	}
 
 	fmt.Printf("Contains 'https://example.com/page2': %t\n", filter2.ContainsString("https://example.com/page2"))
 	fmt.Printf("Contains user ID 1003: %t\n", filter2.ContainsUint64(1003))

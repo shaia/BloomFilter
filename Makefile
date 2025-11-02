@@ -42,8 +42,12 @@ help:
 	@echo "  dist        - Create distribution packages"
 	@echo "  release     - Create release artifacts"
 	@echo "  test        - Run all tests"
+	@echo "  test-short  - Run quick tests (skip long-running)"
+	@echo "  test-race   - Run tests with race detector"
+	@echo "  test-integration - Run integration tests only"
 	@echo "  test-pure   - Run tests with pure Go (no SIMD)"
 	@echo "  bench       - Run benchmarks"
+	@echo "  bench-short - Run quick benchmarks"
 	@echo "  bench-all   - Run benchmarks for both SIMD and pure Go"
 	@echo "  fmt         - Format all Go code"
 	@echo "  lint        - Run linter"
@@ -96,36 +100,56 @@ dist-dir:
 # Test targets
 .PHONY: test
 test:
-	@echo "Running tests with SIMD optimizations..."
-	cd $(PACKAGE_PATH) && $(GO) test -v -race .
+	@echo "Running all tests..."
+	cd $(PACKAGE_PATH) && $(GO) test -v ./...
+
+.PHONY: test-short
+test-short:
+	@echo "Running quick tests (skip long-running tests)..."
+	cd $(PACKAGE_PATH) && $(GO) test -v -short ./...
+
+.PHONY: test-race
+test-race:
+	@echo "Running tests with race detector..."
+	cd $(PACKAGE_PATH) && $(GO) test -race -v ./...
+
+.PHONY: test-integration
+test-integration:
+	@echo "Running integration tests..."
+	cd $(PACKAGE_PATH) && $(GO) test -v ./tests/integration/...
 
 .PHONY: test-pure
 test-pure:
 	@echo "Running tests with pure Go (no SIMD)..."
-	cd $(PACKAGE_PATH) && $(GO) test -v -race -tags purego .
+	cd $(PACKAGE_PATH) && $(GO) test -v -tags purego ./...
 
 .PHONY: test-all
-test-all: test test-pure
+test-all: test test-race test-pure
 
 # Benchmark targets
 .PHONY: bench
 bench:
 	@echo "Running benchmarks with SIMD optimizations..."
-	cd $(PACKAGE_PATH) && $(GOBENCH) -benchmem .
+	cd $(PACKAGE_PATH) && $(GOBENCH) -benchmem ./tests/benchmark/...
+
+.PHONY: bench-short
+bench-short:
+	@echo "Running quick benchmarks..."
+	cd $(PACKAGE_PATH) && $(GO) test -bench=. -benchmem -benchtime=1s ./tests/benchmark/...
 
 .PHONY: bench-pure
 bench-pure:
 	@echo "Running benchmarks with pure Go (no SIMD)..."
-	cd $(PACKAGE_PATH) && $(GOBENCH) -benchmem -tags purego .
+	cd $(PACKAGE_PATH) && $(GOBENCH) -benchmem -tags purego ./tests/benchmark/...
 
 .PHONY: bench-all
 bench-all:
 	@echo "Running benchmarks comparison..."
 	@echo "=== SIMD Optimized ==="
-	cd $(PACKAGE_PATH) && $(GOBENCH) -benchmem .
+	cd $(PACKAGE_PATH) && $(GOBENCH) -benchmem ./tests/benchmark/...
 	@echo ""
 	@echo "=== Pure Go ==="
-	cd $(PACKAGE_PATH) && $(GOBENCH) -benchmem -tags purego .
+	cd $(PACKAGE_PATH) && $(GOBENCH) -benchmem -tags purego ./tests/benchmark/...
 
 .PHONY: bench-compare
 bench-compare:

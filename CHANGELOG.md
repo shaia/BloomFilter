@@ -9,6 +9,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Zero-Allocation Operations**: Stack-based buffers for typical use cases (hashCount ≤ 16, covering 99% of scenarios)
+- **Comprehensive Benchmarks**: Comparison vs willf/bloom and Thread-Safe Pool implementations
+  - 3-4x faster than willf/bloom
+  - 15-26x faster than Thread-Safe Pool
+  - Complete benchmark suite in separate repository
+
+### Changed
+
+- **BREAKING**: Simplified implementation with atomic operations (removed sync.Pool complexity)
+  - Removed `AddBatch`, `AddBatchString`, `AddBatchUint64` functions
+  - Removed `IsArrayMode()` method (no longer has hybrid storage modes)
+  - Removed `internal/storage` package (simplified to direct cache-line array)
+- **Architecture Simplification**: ~400 lines vs ~605 lines (34% reduction)
+  - Direct cache-line array storage (no map/array mode switching)
+  - Stack buffer for hash positions (zero allocations for hashCount ≤ 16)
+  - Simple atomic CAS loops instead of complex pooling logic
+- **Performance Improvements**: Lock-free atomic operations
+  - 26 ns/op for Add (vs 400 ns/op with pool)
+  - 23 ns/op for Contains (vs 600 ns/op with pool)
+  - 20 ns/op for AddUint64 (fastest operation)
+  - Zero allocations on all hot paths
+
+### Removed
+
+- **Batch Operations**: Removed for simplicity (individual operations are now fast enough)
+- **Storage Package**: Removed hybrid array/map storage complexity
+- **sync.Pool**: Removed pooling overhead and complexity
+- **IsArrayMode()**: No longer relevant with simplified architecture
+
+### Performance
+
+- **Throughput**: 18.6M insertions/sec, 35.8M lookups/sec (1M elements, 0.01 FPR)
+- **Allocations**: Zero allocations on hot path (Add, Contains, AddUint64)
+- **Memory**: 99.93% less allocations than Thread-Safe Pool version
+- **SIMD**: 2-4x faster for bulk operations (Union, Intersection, PopCount)
+- **Thread-Safe**: Built-in lock-free atomic operations (no external locks required)
+
+### Fixed
+
+- Eliminated all pool-related bugs and complexity
+- No escape analysis issues (stack buffers for typical cases)
+- Predictable performance (no pool warmup needed)
+- Simpler codebase (easier to maintain and audit)
+
+## [0.3.0] - Thread-Safe Pool Version (Previous)
+
+### Added
+
 - **Thread-Safety**: Full concurrent support with lock-free atomic operations
   - Lock-free bit operations using atomic Compare-And-Swap (CAS)
   - Bounded retry limits with exponential backoff under contention

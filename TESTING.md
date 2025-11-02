@@ -10,18 +10,17 @@ The project follows Go best practices for test organization:
 BloomFilter/
 ├── bloomfilter_test.go              # Core functionality tests
 ├── bloomfilter_simd_test.go         # SIMD capability detection tests
+├── bloomfilter_validation_test.go   # Input validation tests (32 sub-tests)
 └── tests/
-    ├── README.md                    # Tests directory documentation
+    ├── TEST_COVERAGE_SUMMARY.md     # Comprehensive test coverage summary
     ├── benchmark/
-    │   ├── bloomfilter_benchmark_test.go               # Performance benchmarks
-    │   └── bloomfilter_storage_mode_benchmark_test.go  # Storage mode benchmarks
+    │   └── bloomfilter_benchmark_test.go  # Performance benchmarks
     └── integration/
-        ├── bloomfilter_concurrent_test.go       # Thread-safety and concurrent operations tests
-        ├── bloomfilter_edge_cases_test.go       # Edge cases and boundary conditions tests
+        ├── bloomfilter_concurrent_test.go       # Thread-safety tests
+        ├── bloomfilter_edge_cases_test.go       # Edge cases and boundary conditions
         ├── bloomfilter_race_test.go             # Race detector tests (build tag: race)
-        ├── bloomfilter_simd_comparison_test.go  # SIMD comparison tests (build tag: simd_comparison)
-        ├── bloomfilter_storage_mode_test.go     # Storage mode selection tests
-        └── bloomfilter_stress_test.go           # Large-scale stress tests
+        ├── bloomfilter_retry_test.go            # Atomic CAS retry validation
+        └── bloomfilter_simd_comparison_test.go  # SIMD comparison (build tag: simd_comparison)
 ```
 
 ## Test Categories
@@ -31,32 +30,42 @@ BloomFilter/
 Located in the root package directory, these test individual components and functions.
 
 **Files:**
-- `bloomfilter_test.go` - Core Bloom filter operations
-- `bloomfilter_simd_test.go` - SIMD capability detection
+- `bloomfilter_test.go` - Core Bloom filter operations (Add, Contains, Union, Intersection, etc.)
+- `bloomfilter_simd_test.go` - SIMD capability detection and runtime functions
+- `bloomfilter_validation_test.go` - Input validation with 32 sub-tests covering all validation paths
 
 **Running:**
 ```bash
-go test -v ./...
+# All unit tests
+go test -v .
+
+# Specific test
+go test -v -run=TestBasicFunctionality .
+
+# Validation tests only
+go test -v -run=TestInputValidation .
 ```
 
 ### 2. Benchmarks (tests/benchmark/)
 
-Performance benchmarks for comprehensive performance analysis.
+Performance benchmarks for insertion, lookup, false positive rates, and cache performance.
 
 **Files:**
 - `bloomfilter_benchmark_test.go` - Comprehensive performance benchmarks
-- `bloomfilter_storage_mode_benchmark_test.go` - Storage mode performance benchmarks
 
 **Running:**
 ```bash
 # All benchmarks
-go test -bench=. -benchmem ./...
+go test -bench=. -benchmem ./tests/benchmark/...
 
 # Specific benchmark
 go test -bench=BenchmarkInsertion -benchmem ./tests/benchmark
 
-# Storage mode benchmarks
-go test -bench=BenchmarkHybridModes -benchmem ./tests/benchmark
+# Quick benchmarks (using Makefile)
+make bench-short
+
+# Full benchmark comparison (SIMD vs Pure Go)
+make bench-all
 
 # With CPU profiling
 go test -bench=BenchmarkInsertion -cpuprofile=cpu.prof ./tests/benchmark
@@ -64,32 +73,32 @@ go test -bench=BenchmarkInsertion -cpuprofile=cpu.prof ./tests/benchmark
 
 ### 3. Integration Tests (tests/integration/)
 
-Tests that verify interactions between components, thread-safety, and cross-package functionality.
+Tests that verify thread-safety, edge cases, and cross-component interactions.
 
 **Files:**
-- `bloomfilter_concurrent_test.go` - Thread-safety tests with concurrent reads/writes
-- `bloomfilter_edge_cases_test.go` - Edge cases, boundary conditions, and collision resistance
+- `bloomfilter_concurrent_test.go` - Thread-safety tests with 100+ concurrent goroutines
+- `bloomfilter_edge_cases_test.go` - Boundary conditions, invalid inputs, extreme sizes
 - `bloomfilter_race_test.go` - Race detector tests (build tag: `race`)
-- `bloomfilter_simd_comparison_test.go` - SIMD vs fallback performance validation (build tag: `simd_comparison`)
-- `bloomfilter_storage_mode_test.go` - Hybrid storage mode selection tests (array vs map)
-- `bloomfilter_stress_test.go` - Large-scale stress tests (millions of operations)
+- `bloomfilter_retry_test.go` - Atomic CAS retry mechanism validation under extreme contention
+- `bloomfilter_simd_comparison_test.go` - SIMD vs fallback validation (build tag: `simd_comparison`)
 
 **Running:**
 ```bash
-# All integration tests (without build tags)
+# All integration tests
 go test -v ./tests/integration
 
 # Thread-safety tests
 go test -v ./tests/integration -run=TestConcurrent
 
-# With race detector (uses -short flag to reduce workload)
-go test -race -short -v ./tests/integration
+# Atomic retry mechanism tests
+go test -v ./tests/integration -run=TestAtomicRetryMechanism
+go test -v ./tests/integration -run=TestExtremeContentionSameWord
 
-# Stress tests
-go test -v ./tests/integration -run=TestLargeDataset
+# With race detector
+go test -race -v ./tests/integration
 
-# Storage mode selection tests
-go test -v ./tests/integration -run=TestHybridMode
+# Edge cases and validation
+go test -v ./tests/integration -run=TestZeroAndNegativeInputs
 
 # SIMD comparison tests (requires build tag)
 go test -tags=simd_comparison -v ./tests/integration -run=TestSIMDPerformanceImprovement
@@ -100,11 +109,39 @@ go test -tags=simd_comparison -bench=BenchmarkSIMDvsScalar ./tests/integration
 
 ## Running Tests
 
+### Quick Test Commands (Using Makefile)
+
+```bash
+# Quick sanity check (skips long-running tests)
+make test-short
+
+# Run all tests
+make test
+
+# Run with race detector
+make test-race
+
+# Run integration tests only
+make test-integration
+
+# Run benchmarks
+make bench
+
+# Run quick benchmarks
+make bench-short
+
+# Full validation (tests + race + pure Go)
+make test-all
+```
+
 ### Standard Test Suite
 
 ```bash
 # Run all tests
 go test -v ./...
+
+# Quick iteration (skip long-running tests)
+go test -short -v ./...
 
 # Run tests with coverage
 go test -v -cover ./...
@@ -309,6 +346,6 @@ go tool cover -func=coverage.out
 ## Additional Resources
 
 - [scripts/BENCHMARK_WORKFLOW.md](scripts/BENCHMARK_WORKFLOW.md) - Automated benchmarking guide
-- [tests/README.md](tests/README.md) - Tests directory documentation
+- [tests/TEST_COVERAGE_SUMMARY.md](tests/TEST_COVERAGE_SUMMARY.md) - Comprehensive test coverage summary
 - [Go Testing Documentation](https://golang.org/pkg/testing/)
 - [Go Benchmark Guidelines](https://dave.cheney.net/2013/06/30/how-to-write-benchmarks-in-go)
