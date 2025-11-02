@@ -19,6 +19,7 @@ BloomFilter/
         ├── bloomfilter_concurrent_test.go       # Thread-safety tests
         ├── bloomfilter_edge_cases_test.go       # Edge cases and boundary conditions
         ├── bloomfilter_race_test.go             # Race detector tests (build tag: race)
+        ├── bloomfilter_retry_test.go            # Atomic CAS retry validation
         └── bloomfilter_simd_comparison_test.go  # SIMD comparison (build tag: simd_comparison)
 ```
 
@@ -78,6 +79,7 @@ Tests that verify thread-safety, edge cases, and cross-component interactions.
 - `bloomfilter_concurrent_test.go` - Thread-safety tests with 100+ concurrent goroutines
 - `bloomfilter_edge_cases_test.go` - Boundary conditions, invalid inputs, extreme sizes
 - `bloomfilter_race_test.go` - Race detector tests (build tag: `race`)
+- `bloomfilter_retry_test.go` - Atomic CAS retry mechanism validation under extreme contention
 - `bloomfilter_simd_comparison_test.go` - SIMD vs fallback validation (build tag: `simd_comparison`)
 
 **Running:**
@@ -87,6 +89,10 @@ go test -v ./tests/integration
 
 # Thread-safety tests
 go test -v ./tests/integration -run=TestConcurrent
+
+# Atomic retry mechanism tests
+go test -v ./tests/integration -run=TestAtomicRetryMechanism
+go test -v ./tests/integration -run=TestExtremeContentionSameWord
 
 # With race detector
 go test -race -v ./tests/integration
