@@ -89,6 +89,7 @@ import (
 
 func main() {
     // Create a bloom filter for 1M elements with 1% false positive rate
+    // Panics if expectedElements = 0 or falsePositiveRate not in (0, 1)
     filter := bf.NewCacheOptimizedBloomFilter(1000000, 0.01)
 
     // Add elements (thread-safe, zero allocations for typical FPR ≥ 0.001)
@@ -136,6 +137,29 @@ BloomFilter/
 ```
 
 **Note:** The `internal/` package follows Go conventions - it cannot be imported by external packages, ensuring a clean public API while allowing internal refactoring without breaking changes.
+
+## API Behavior
+
+### Input Validation
+
+`NewCacheOptimizedBloomFilter` validates inputs and panics with descriptive error messages for invalid parameters:
+
+```go
+// Valid usage
+filter := bf.NewCacheOptimizedBloomFilter(1000, 0.01)  // ✓ OK
+
+// Invalid inputs - will panic
+bf.NewCacheOptimizedBloomFilter(0, 0.01)        // ✗ Panics: expectedElements must be > 0
+bf.NewCacheOptimizedBloomFilter(1000, 0.0)      // ✗ Panics: FPR must be in range (0, 1)
+bf.NewCacheOptimizedBloomFilter(1000, 1.0)      // ✗ Panics: FPR must be in range (0, 1)
+bf.NewCacheOptimizedBloomFilter(1000, -0.01)    // ✗ Panics: FPR must be in range (0, 1)
+bf.NewCacheOptimizedBloomFilter(1000, math.NaN()) // ✗ Panics: FPR cannot be NaN
+```
+
+**Rationale:** Panicking on invalid inputs is preferred over returning errors because:
+1. Invalid parameters represent programming errors, not runtime conditions
+2. Fails fast during development/testing rather than silently creating broken filters
+3. Matches Go standard library conventions (e.g., `make()` panics on negative sizes)
 
 ## Usage Examples
 

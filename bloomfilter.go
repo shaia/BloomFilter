@@ -43,7 +43,22 @@ type CacheStats struct {
 // NewCacheOptimizedBloomFilter creates a cache line optimized bloom filter.
 // Uses SIMD-accelerated operations and lock-free atomic operations for thread-safety.
 // Achieves zero allocations for typical use cases (hashCount ≤ 16, which covers 99% of scenarios).
+//
+// Panics if:
+//   - expectedElements is 0
+//   - falsePositiveRate is <= 0, >= 1.0, or NaN
 func NewCacheOptimizedBloomFilter(expectedElements uint64, falsePositiveRate float64) *CacheOptimizedBloomFilter {
+	// Validate inputs
+	if expectedElements == 0 {
+		panic("bloomfilter: expectedElements must be greater than 0")
+	}
+	if falsePositiveRate <= 0 || falsePositiveRate >= 1.0 {
+		panic(fmt.Sprintf("bloomfilter: falsePositiveRate must be in range (0, 1), got %f", falsePositiveRate))
+	}
+	if math.IsNaN(falsePositiveRate) {
+		panic("bloomfilter: falsePositiveRate cannot be NaN")
+	}
+
 	// Calculate optimal parameters
 	ln2 := math.Ln2
 	bitCount := uint64(-float64(expectedElements) * math.Log(falsePositiveRate) / (ln2 * ln2))

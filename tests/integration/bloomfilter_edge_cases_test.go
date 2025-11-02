@@ -165,61 +165,96 @@ func TestMaximumHashCount(t *testing.T) {
 	}
 }
 
-// TestZeroAndNegativeInputs tests handling of invalid inputs
+// TestZeroAndNegativeInputs tests that invalid inputs panic with clear error messages
 func TestZeroAndNegativeInputs(t *testing.T) {
 	t.Run("Zero Expected Elements", func(t *testing.T) {
 		defer func() {
-			if r := recover(); r != nil {
+			if r := recover(); r == nil {
+				t.Error("Expected panic for zero expected elements, but didn't panic")
+			} else {
 				t.Logf("Correctly panicked for zero expected elements: %v", r)
+				// Verify panic message is informative
+				if msg, ok := r.(string); ok {
+					if msg != "bloomfilter: expectedElements must be greater than 0" {
+						t.Errorf("Unexpected panic message: %s", msg)
+					}
+				}
 			}
 		}()
 
-		// This might panic or handle gracefully - test actual behavior
-		bf := bloomfilter.NewCacheOptimizedBloomFilter(0, 0.01)
-		if bf != nil {
-			stats := bf.GetCacheStats()
-			t.Logf("Created filter with 0 elements: hash_count=%d, bits=%d",
-				stats.HashCount, stats.BitCount)
-		}
+		bloomfilter.NewCacheOptimizedBloomFilter(0, 0.01)
+		t.Error("Should not reach here - expected panic")
 	})
 
 	t.Run("Invalid FPR - Too High", func(t *testing.T) {
 		defer func() {
-			if r := recover(); r != nil {
+			if r := recover(); r == nil {
+				t.Error("Expected panic for FPR > 1.0, but didn't panic")
+			} else {
 				t.Logf("Correctly panicked for FPR > 1.0: %v", r)
 			}
 		}()
 
-		bf := bloomfilter.NewCacheOptimizedBloomFilter(1000, 1.5)
-		if bf != nil {
-			t.Log("Filter created with FPR > 1.0")
-		}
+		bloomfilter.NewCacheOptimizedBloomFilter(1000, 1.5)
+		t.Error("Should not reach here - expected panic")
 	})
 
 	t.Run("Invalid FPR - Negative", func(t *testing.T) {
 		defer func() {
-			if r := recover(); r != nil {
+			if r := recover(); r == nil {
+				t.Error("Expected panic for negative FPR, but didn't panic")
+			} else {
 				t.Logf("Correctly panicked for negative FPR: %v", r)
 			}
 		}()
 
-		bf := bloomfilter.NewCacheOptimizedBloomFilter(1000, -0.01)
-		if bf != nil {
-			t.Log("Filter created with negative FPR")
-		}
+		bloomfilter.NewCacheOptimizedBloomFilter(1000, -0.01)
+		t.Error("Should not reach here - expected panic")
+	})
+
+	t.Run("Invalid FPR - Zero", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("Expected panic for zero FPR, but didn't panic")
+			} else {
+				t.Logf("Correctly panicked for zero FPR: %v", r)
+			}
+		}()
+
+		bloomfilter.NewCacheOptimizedBloomFilter(1000, 0.0)
+		t.Error("Should not reach here - expected panic")
+	})
+
+	t.Run("Invalid FPR - Exactly 1.0", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("Expected panic for FPR = 1.0, but didn't panic")
+			} else {
+				t.Logf("Correctly panicked for FPR = 1.0: %v", r)
+			}
+		}()
+
+		bloomfilter.NewCacheOptimizedBloomFilter(1000, 1.0)
+		t.Error("Should not reach here - expected panic")
 	})
 
 	t.Run("NaN FPR", func(t *testing.T) {
 		defer func() {
-			if r := recover(); r != nil {
+			if r := recover(); r == nil {
+				t.Error("Expected panic for NaN FPR, but didn't panic")
+			} else {
 				t.Logf("Correctly panicked for NaN FPR: %v", r)
+				// Verify panic message is informative
+				if msg, ok := r.(string); ok {
+					if msg != "bloomfilter: falsePositiveRate cannot be NaN" {
+						t.Errorf("Unexpected panic message: %s", msg)
+					}
+				}
 			}
 		}()
 
-		bf := bloomfilter.NewCacheOptimizedBloomFilter(1000, math.NaN())
-		if bf != nil {
-			t.Log("Filter created with NaN FPR")
-		}
+		bloomfilter.NewCacheOptimizedBloomFilter(1000, math.NaN())
+		t.Error("Should not reach here - expected panic")
 	})
 }
 
