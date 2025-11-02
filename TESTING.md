@@ -16,8 +16,12 @@ BloomFilter/
     │   ├── bloomfilter_benchmark_test.go               # Performance benchmarks
     │   └── bloomfilter_storage_mode_benchmark_test.go  # Storage mode benchmarks
     └── integration/
+        ├── bloomfilter_concurrent_test.go       # Thread-safety and concurrent operations tests
+        ├── bloomfilter_edge_cases_test.go       # Edge cases and boundary conditions tests
+        ├── bloomfilter_race_test.go             # Race detector tests (build tag: race)
         ├── bloomfilter_simd_comparison_test.go  # SIMD comparison tests (build tag: simd_comparison)
-        └── bloomfilter_storage_mode_test.go     # Storage mode selection tests
+        ├── bloomfilter_storage_mode_test.go     # Storage mode selection tests
+        └── bloomfilter_stress_test.go           # Large-scale stress tests
 ```
 
 ## Test Categories
@@ -60,16 +64,29 @@ go test -bench=BenchmarkInsertion -cpuprofile=cpu.prof ./tests/benchmark
 
 ### 3. Integration Tests (tests/integration/)
 
-Tests that verify interactions between components and cross-package functionality.
+Tests that verify interactions between components, thread-safety, and cross-package functionality.
 
 **Files:**
+- `bloomfilter_concurrent_test.go` - Thread-safety tests with concurrent reads/writes
+- `bloomfilter_edge_cases_test.go` - Edge cases, boundary conditions, and collision resistance
+- `bloomfilter_race_test.go` - Race detector tests (build tag: `race`)
 - `bloomfilter_simd_comparison_test.go` - SIMD vs fallback performance validation (build tag: `simd_comparison`)
 - `bloomfilter_storage_mode_test.go` - Hybrid storage mode selection tests (array vs map)
+- `bloomfilter_stress_test.go` - Large-scale stress tests (millions of operations)
 
 **Running:**
 ```bash
 # All integration tests (without build tags)
 go test -v ./tests/integration
+
+# Thread-safety tests
+go test -v ./tests/integration -run=TestConcurrent
+
+# With race detector (uses -short flag to reduce workload)
+go test -race -short -v ./tests/integration
+
+# Stress tests
+go test -v ./tests/integration -run=TestLargeDataset
 
 # Storage mode selection tests
 go test -v ./tests/integration -run=TestHybridMode
@@ -230,23 +247,23 @@ func TestIntegrationScenario(t *testing.T) {
 
 Tests are automatically run in GitHub Actions workflows:
 
-### Pull Request Workflow
-- Standard unit tests (`go test ./...`)
-- Basic SIMD correctness tests
-- Build validation
+### Tests Workflow (on push/PR)
+- Standard unit tests (`go test -v ./...`)
+- Race detector tests (`go test -race -short -timeout=10m -v ./...`)
+  - Uses `-short` flag to reduce workload for race detector (5-10x overhead)
+  - 10-minute timeout for comprehensive race detection
+  - Uploads race logs on failure
+- Build validation for all platforms (Ubuntu, Windows, macOS)
+- Build with race detector enabled
+- Benchmark dry run
 
-### Pre-Release Workflow
-- All unit tests
-- SIMD comparison tests (`-tags=simd_comparison`)
-- Build validation
-- Version validation
+### Key Features
+- **Race Detection**: Automated data race detection on every push/PR
+- **Cross-Platform**: Tests on Ubuntu, Windows, and macOS
+- **Comprehensive Coverage**: Unit, integration, and stress tests
+- **Performance Validation**: Benchmark tests ensure no regressions
 
-### Release Workflow
-- Full test suite including integration tests
-- SIMD performance validation
-- Build for all platforms
-
-See `.github/workflows/` for full workflow definitions.
+See [.github/workflows/test.yml](.github/workflows/test.yml) for full workflow definition.
 
 ## Test Coverage Goals
 

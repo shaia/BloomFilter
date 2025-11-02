@@ -6,14 +6,16 @@ A high-performance, cache-line optimized bloom filter implementation in Go with 
 
 ## Features
 
+- **Thread-Safe**: Lock-free concurrent operations using atomic CAS with sync.Pool optimization
 - **SIMD Acceleration**: Automatic detection and usage of AVX2, AVX512, and ARM NEON instructions
 - **Cache-Optimized**: 64-byte aligned memory structures for optimal CPU cache performance
 - **Hybrid Architecture**: Automatic array/map mode selection for optimal performance across all filter sizes
+- **Batch Operations**: High-throughput batch Add functions with pooled resource reuse
 - **Cross-Platform**: Supports x86_64 (Intel/AMD) and ARM64 architectures
 - **High Performance**: 2.2x - 3.5x speedup with SIMD over scalar implementations
 - **Memory Efficient**: 95% memory reduction for small filters, unlimited scalability for large filters
 - **Zero Allocations**: Array mode operations with zero per-operation allocations for small filters
-- **Production Ready**: Comprehensive test suite with 100% correctness validation
+- **Production Ready**: Comprehensive test suite with race detection and 100% correctness validation
 
 ## Performance
 
@@ -31,8 +33,9 @@ A high-performance, cache-line optimized bloom filter implementation in Go with 
 
 ### Throughput
 
-- **Insertions**: ~2.1M operations/second
-- **Lookups**: ~2.2M operations/second
+- **Concurrent Writes**: 18-23M operations/second (50 goroutines)
+- **Concurrent Reads**: 10M+ operations/second (100 goroutines)
+- **Sequential Operations**: ~2M operations/second
 - **False Positive Rate**: 0.05% (target: 1.0%)
 
 ### Hybrid Architecture Performance
@@ -314,12 +317,17 @@ func NewCacheOptimizedBloomFilter(
 ### Core Methods
 
 ```go
-// Add operations
+// Add operations (thread-safe, lock-free)
 func (bf *CacheOptimizedBloomFilter) Add(data []byte)
 func (bf *CacheOptimizedBloomFilter) AddString(s string)
 func (bf *CacheOptimizedBloomFilter) AddUint64(n uint64)
 
-// Contains operations
+// Batch operations (optimized with pooled resources)
+func (bf *CacheOptimizedBloomFilter) AddBatch(items [][]byte)
+func (bf *CacheOptimizedBloomFilter) AddBatchString(items []string)
+func (bf *CacheOptimizedBloomFilter) AddBatchUint64(items []uint64)
+
+// Contains operations (thread-safe, lock-free)
 func (bf *CacheOptimizedBloomFilter) Contains(data []byte) bool
 func (bf *CacheOptimizedBloomFilter) ContainsString(s string) bool
 func (bf *CacheOptimizedBloomFilter) ContainsUint64(n uint64) bool

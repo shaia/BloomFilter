@@ -1,5 +1,7 @@
 package storage
 
+import "sync"
+
 // OpDetail represents a bit operation within a cache line (word index and bit offset).
 type OpDetail struct {
 	WordIdx   uint64
@@ -13,187 +15,241 @@ type SetDetail struct {
 	BitOffset uint64
 }
 
-// Mode handles the hybrid array/map storage abstraction.
-// This encapsulates the logic for choosing between array mode (small filters)
-// and map mode (large filters) without duplicating code.
-type Mode struct {
+// OperationStorage holds temporary storage for a single operation.
+// This is pooled to avoid allocations and enable thread-safe concurrent operations.
+type OperationStorage struct {
 	UseArrayMode bool
 
-	// Array-based storage (for small filters, zero-overhead indexing)
+	// Array-based storage (for small filters)
 	ArrayOps    *[10000][]OpDetail
 	ArrayOpsSet *[10000][]SetDetail
 	ArrayMap    *[10000][]uint64
 
-	// Map-based storage (for large filters, dynamic scaling)
+	// Map-based storage (for large filters)
 	MapOps    map[uint64][]OpDetail
 	MapOpsSet map[uint64][]SetDetail
 	MapMap    map[uint64][]uint64
 
-	// Track which indices are in use for fast clearing
+	// Track which indices are in use
 	UsedIndicesGet  []uint64
 	UsedIndicesSet  []uint64
 	UsedIndicesHash []uint64
+}
+
+// Clear resets all operation storage to empty state, reusing allocated memory
+// This allows reusing the same OperationStorage across multiple operations
+// without returning it to the pool
+func (os *OperationStorage) Clear() {
+	if os.UseArrayMode {
+		// Clear only used indices
+		for _, idx := range os.UsedIndicesGet {
+			os.ArrayOps[idx] = os.ArrayOps[idx][:0]
+		}
+		for _, idx := range os.UsedIndicesSet {
+			os.ArrayOpsSet[idx] = os.ArrayOpsSet[idx][:0]
+		}
+		for _, idx := range os.UsedIndicesHash {
+			os.ArrayMap[idx] = os.ArrayMap[idx][:0]
+		}
+	} else {
+		// Clear maps
+		clear(os.MapOps)
+		clear(os.MapOpsSet)
+		clear(os.MapMap)
+	}
+
+	// Reset used indices
+	os.UsedIndicesGet = os.UsedIndicesGet[:0]
+	os.UsedIndicesSet = os.UsedIndicesSet[:0]
+	os.UsedIndicesHash = os.UsedIndicesHash[:0]
+}
+
+// ClearGetMap clears the get operation map
+func (os *OperationStorage) ClearGetMap() {
+	if os.UseArrayMode {
+		for _, idx := range os.UsedIndicesGet {
+			os.ArrayOps[idx] = os.ArrayOps[idx][:0]
+		}
+		os.UsedIndicesGet = os.UsedIndicesGet[:0]
+	} else {
+		clear(os.MapOps)
+		os.UsedIndicesGet = os.UsedIndicesGet[:0]
+	}
+}
+
+// AddGetOperation adds a get operation for a given cache line
+func (os *OperationStorage) AddGetOperation(cacheLineIdx, WordIdx, BitOffset uint64) {
+	if os.UseArrayMode {
+		if len(os.ArrayOps[cacheLineIdx]) == 0 {
+			os.UsedIndicesGet = append(os.UsedIndicesGet, cacheLineIdx)
+		}
+		os.ArrayOps[cacheLineIdx] = append(os.ArrayOps[cacheLineIdx], OpDetail{
+			WordIdx: WordIdx, BitOffset: BitOffset,
+		})
+	} else {
+		if len(os.MapOps[cacheLineIdx]) == 0 {
+			os.UsedIndicesGet = append(os.UsedIndicesGet, cacheLineIdx)
+		}
+		os.MapOps[cacheLineIdx] = append(os.MapOps[cacheLineIdx], OpDetail{
+			WordIdx: WordIdx, BitOffset: BitOffset,
+		})
+	}
+}
+
+// GetGetOperations returns all get operations for a given cache line
+func (os *OperationStorage) GetGetOperations(cacheLineIdx uint64) []OpDetail {
+	if os.UseArrayMode {
+		return os.ArrayOps[cacheLineIdx]
+	}
+	return os.MapOps[cacheLineIdx]
+}
+
+// GetUsedGetIndices returns the list of cache line indices that have get operations
+func (os *OperationStorage) GetUsedGetIndices() []uint64 {
+	return os.UsedIndicesGet
+}
+
+// ClearSetMap clears the set operation map
+func (os *OperationStorage) ClearSetMap() {
+	if os.UseArrayMode {
+		for _, idx := range os.UsedIndicesSet {
+			os.ArrayOpsSet[idx] = os.ArrayOpsSet[idx][:0]
+		}
+		os.UsedIndicesSet = os.UsedIndicesSet[:0]
+	} else {
+		clear(os.MapOpsSet)
+		os.UsedIndicesSet = os.UsedIndicesSet[:0]
+	}
+}
+
+// AddSetOperation adds a set operation for a given cache line
+func (os *OperationStorage) AddSetOperation(cacheLineIdx, WordIdx, BitOffset uint64) {
+	if os.UseArrayMode {
+		if len(os.ArrayOpsSet[cacheLineIdx]) == 0 {
+			os.UsedIndicesSet = append(os.UsedIndicesSet, cacheLineIdx)
+		}
+		os.ArrayOpsSet[cacheLineIdx] = append(os.ArrayOpsSet[cacheLineIdx], SetDetail{
+			WordIdx: WordIdx, BitOffset: BitOffset,
+		})
+	} else {
+		if len(os.MapOpsSet[cacheLineIdx]) == 0 {
+			os.UsedIndicesSet = append(os.UsedIndicesSet, cacheLineIdx)
+		}
+		os.MapOpsSet[cacheLineIdx] = append(os.MapOpsSet[cacheLineIdx], SetDetail{
+			WordIdx: WordIdx, BitOffset: BitOffset,
+		})
+	}
+}
+
+// GetSetOperations returns all set operations for a given cache line
+func (os *OperationStorage) GetSetOperations(cacheLineIdx uint64) []SetDetail {
+	if os.UseArrayMode {
+		return os.ArrayOpsSet[cacheLineIdx]
+	}
+	return os.MapOpsSet[cacheLineIdx]
+}
+
+// GetUsedSetIndices returns the list of cache line indices that have set operations
+func (os *OperationStorage) GetUsedSetIndices() []uint64 {
+	return os.UsedIndicesSet
+}
+
+// ClearHashMap clears the hash position map
+func (os *OperationStorage) ClearHashMap() {
+	if os.UseArrayMode {
+		for _, idx := range os.UsedIndicesHash {
+			os.ArrayMap[idx] = os.ArrayMap[idx][:0]
+		}
+		os.UsedIndicesHash = os.UsedIndicesHash[:0]
+	} else {
+		clear(os.MapMap)
+		os.UsedIndicesHash = os.UsedIndicesHash[:0]
+	}
+}
+
+// AddHashPosition adds a bit position to the hash map for a given cache line
+func (os *OperationStorage) AddHashPosition(cacheLineIdx uint64, bitPos uint64) {
+	if os.UseArrayMode {
+		if len(os.ArrayMap[cacheLineIdx]) == 0 {
+			os.UsedIndicesHash = append(os.UsedIndicesHash, cacheLineIdx)
+		}
+		os.ArrayMap[cacheLineIdx] = append(os.ArrayMap[cacheLineIdx], bitPos)
+	} else {
+		if len(os.MapMap[cacheLineIdx]) == 0 {
+			os.UsedIndicesHash = append(os.UsedIndicesHash, cacheLineIdx)
+		}
+		os.MapMap[cacheLineIdx] = append(os.MapMap[cacheLineIdx], bitPos)
+	}
+}
+
+// GetUsedHashIndices returns the list of cache line indices that have hash positions
+func (os *OperationStorage) GetUsedHashIndices() []uint64 {
+	return os.UsedIndicesHash
+}
+
+// Pool for operation storage - separate pools for array and map modes
+var (
+	arrayOpsPool = sync.Pool{
+		New: func() interface{} {
+			return &OperationStorage{
+				UseArrayMode:    true,
+				ArrayOps:        &[10000][]OpDetail{},
+				ArrayOpsSet:     &[10000][]SetDetail{},
+				ArrayMap:        &[10000][]uint64{},
+				UsedIndicesGet:  make([]uint64, 0, 8),
+				UsedIndicesSet:  make([]uint64, 0, 8),
+				UsedIndicesHash: make([]uint64, 0, 8),
+			}
+		},
+	}
+
+	mapOpsPool = sync.Pool{
+		New: func() interface{} {
+			return &OperationStorage{
+				UseArrayMode:    false,
+				MapOps:          make(map[uint64][]OpDetail, 32),
+				MapOpsSet:       make(map[uint64][]SetDetail, 32),
+				MapMap:          make(map[uint64][]uint64, 32),
+				UsedIndicesGet:  make([]uint64, 0, 32),
+				UsedIndicesSet:  make([]uint64, 0, 32),
+				UsedIndicesHash: make([]uint64, 0, 32),
+			}
+		},
+	}
+)
+
+// GetOperationStorage retrieves an operation storage from the pool
+// Objects from pool are already clean (either new or cleared on Put)
+func GetOperationStorage(useArrayMode bool) *OperationStorage {
+	if useArrayMode {
+		return arrayOpsPool.Get().(*OperationStorage)
+	}
+	return mapOpsPool.Get().(*OperationStorage)
+}
+
+// PutOperationStorage returns an operation storage to the pool after clearing it
+func PutOperationStorage(ops *OperationStorage) {
+	// Clear before returning to pool to ensure next Get receives clean object
+	ops.Clear()
+
+	if ops.UseArrayMode {
+		arrayOpsPool.Put(ops)
+	} else {
+		mapOpsPool.Put(ops)
+	}
+}
+
+// Mode handles the hybrid array/map storage configuration.
+// With sync.Pool, this just tracks the mode setting, not the actual storage.
+type Mode struct {
+	UseArrayMode bool
 }
 
 // New creates a new storage mode instance based on the cache line count.
 func New(cacheLineCount uint64, hashCount uint32, arrayModeThreshold uint64) *Mode {
 	useArrayMode := cacheLineCount <= arrayModeThreshold
 
-	s := &Mode{
-		UseArrayMode:    useArrayMode,
-		UsedIndicesGet:  make([]uint64, 0, hashCount/8+1),
-		UsedIndicesSet:  make([]uint64, 0, hashCount/8+1),
-		UsedIndicesHash: make([]uint64, 0, hashCount/8+1),
+	return &Mode{
+		UseArrayMode: useArrayMode,
 	}
-
-	if useArrayMode {
-		// Small filter: use arrays for zero-overhead indexing
-		s.ArrayOps = &[10000][]OpDetail{}
-		s.ArrayOpsSet = &[10000][]SetDetail{}
-		s.ArrayMap = &[10000][]uint64{}
-	} else {
-		// Large filter: use maps for dynamic scaling
-		estimatedCapacity := int(hashCount / 4)
-		s.MapOps = make(map[uint64][]OpDetail, estimatedCapacity)
-		s.MapOpsSet = make(map[uint64][]SetDetail, estimatedCapacity)
-		s.MapMap = make(map[uint64][]uint64, estimatedCapacity)
-	}
-
-	return s
-}
-
-// clearHashMap clears the hash position map efficiently.
-func (s *Mode) ClearHashMap() {
-	if s.UseArrayMode {
-		// Clear only used indices - O(used) instead of O(capacity)
-		for _, idx := range s.UsedIndicesHash {
-			s.ArrayMap[idx] = s.ArrayMap[idx][:0]
-		}
-		s.UsedIndicesHash = s.UsedIndicesHash[:0]
-	} else {
-		// Clear the map efficiently with Go 1.21+ built-in
-		clear(s.MapMap)
-		s.UsedIndicesHash = s.UsedIndicesHash[:0]
-	}
-}
-
-// addHashPosition adds a bit position to the hash map for a given cache line.
-func (s *Mode) AddHashPosition(cacheLineIdx uint64, bitPos uint64) {
-	if s.UseArrayMode {
-		// Track first use of this cache line index
-		if len(s.ArrayMap[cacheLineIdx]) == 0 {
-			s.UsedIndicesHash = append(s.UsedIndicesHash, cacheLineIdx)
-		}
-		s.ArrayMap[cacheLineIdx] = append(s.ArrayMap[cacheLineIdx], bitPos)
-	} else {
-		// Track first use of this cache line index
-		// Check length to avoid double map lookup (auto-initializes on first append)
-		if len(s.MapMap[cacheLineIdx]) == 0 {
-			s.UsedIndicesHash = append(s.UsedIndicesHash, cacheLineIdx)
-		}
-		s.MapMap[cacheLineIdx] = append(s.MapMap[cacheLineIdx], bitPos)
-	}
-}
-
-// getUsedHashIndices returns the list of cache line indices that have hash positions.
-func (s *Mode) GetUsedHashIndices() []uint64 {
-	return s.UsedIndicesHash
-}
-
-// clearSetMap clears the set operation map efficiently.
-func (s *Mode) ClearSetMap() {
-	if s.UseArrayMode {
-		// Clear only used indices - O(used) instead of O(capacity)
-		for _, idx := range s.UsedIndicesSet {
-			s.ArrayOpsSet[idx] = s.ArrayOpsSet[idx][:0]
-		}
-		s.UsedIndicesSet = s.UsedIndicesSet[:0]
-	} else {
-		// Clear the map efficiently with Go 1.21+ built-in
-		clear(s.MapOpsSet)
-		s.UsedIndicesSet = s.UsedIndicesSet[:0]
-	}
-}
-
-// addSetOperation adds a set operation for a given cache line.
-func (s *Mode) AddSetOperation(cacheLineIdx, WordIdx, BitOffset uint64) {
-	if s.UseArrayMode {
-		// Track first use of this cache line index
-		if len(s.ArrayOpsSet[cacheLineIdx]) == 0 {
-			s.UsedIndicesSet = append(s.UsedIndicesSet, cacheLineIdx)
-		}
-		s.ArrayOpsSet[cacheLineIdx] = append(s.ArrayOpsSet[cacheLineIdx], SetDetail{
-			WordIdx: WordIdx, BitOffset: BitOffset,
-		})
-	} else {
-		// Track first use of this cache line index
-		if len(s.MapOpsSet[cacheLineIdx]) == 0 {
-			s.UsedIndicesSet = append(s.UsedIndicesSet, cacheLineIdx)
-		}
-		s.MapOpsSet[cacheLineIdx] = append(s.MapOpsSet[cacheLineIdx], SetDetail{
-			WordIdx: WordIdx, BitOffset: BitOffset,
-		})
-	}
-}
-
-// getSetOperations returns all set operations for a given cache line.
-func (s *Mode) GetSetOperations(cacheLineIdx uint64) []SetDetail {
-	if s.UseArrayMode {
-		return s.ArrayOpsSet[cacheLineIdx]
-	}
-	return s.MapOpsSet[cacheLineIdx]
-}
-
-// getUsedSetIndices returns the list of cache line indices that have set operations.
-func (s *Mode) GetUsedSetIndices() []uint64 {
-	return s.UsedIndicesSet
-}
-
-// clearGetMap clears the get operation map efficiently.
-func (s *Mode) ClearGetMap() {
-	if s.UseArrayMode {
-		// Clear only used indices - O(used) instead of O(capacity)
-		for _, idx := range s.UsedIndicesGet {
-			s.ArrayOps[idx] = s.ArrayOps[idx][:0]
-		}
-		s.UsedIndicesGet = s.UsedIndicesGet[:0]
-	} else {
-		// Clear the map efficiently with Go 1.21+ built-in
-		clear(s.MapOps)
-		s.UsedIndicesGet = s.UsedIndicesGet[:0]
-	}
-}
-
-// addGetOperation adds a get operation for a given cache line.
-func (s *Mode) AddGetOperation(cacheLineIdx, WordIdx, BitOffset uint64) {
-	if s.UseArrayMode {
-		// Track first use of this cache line index
-		if len(s.ArrayOps[cacheLineIdx]) == 0 {
-			s.UsedIndicesGet = append(s.UsedIndicesGet, cacheLineIdx)
-		}
-		s.ArrayOps[cacheLineIdx] = append(s.ArrayOps[cacheLineIdx], OpDetail{
-			WordIdx: WordIdx, BitOffset: BitOffset,
-		})
-	} else {
-		// Track first use of this cache line index
-		if len(s.MapOps[cacheLineIdx]) == 0 {
-			s.UsedIndicesGet = append(s.UsedIndicesGet, cacheLineIdx)
-		}
-		s.MapOps[cacheLineIdx] = append(s.MapOps[cacheLineIdx], OpDetail{
-			WordIdx: WordIdx, BitOffset: BitOffset,
-		})
-	}
-}
-
-// getGetOperations returns all get operations for a given cache line.
-func (s *Mode) GetGetOperations(cacheLineIdx uint64) []OpDetail {
-	if s.UseArrayMode {
-		return s.ArrayOps[cacheLineIdx]
-	}
-	return s.MapOps[cacheLineIdx]
-}
-
-// getUsedGetIndices returns the list of cache line indices that have get operations.
-func (s *Mode) GetUsedGetIndices() []uint64 {
-	return s.UsedIndicesGet
 }
