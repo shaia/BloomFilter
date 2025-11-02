@@ -481,7 +481,7 @@ func (bf *CacheOptimizedBloomFilter) prefetchCacheLines(cacheLineIndices []uint6
 	for _, idx := range cacheLineIndices {
 		if idx < bf.cacheLineCount {
 			// Touch the cache line to bring it into cache
-			_ = bf.cacheLines[idx].words[0]
+			_ = atomic.LoadUint64(&bf.cacheLines[idx].words[0])
 		}
 	}
 }
