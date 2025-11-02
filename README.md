@@ -353,11 +353,23 @@ func HasSIMD() bool    // Check for any SIMD support
 
 ## Performance Comparison
 
-Complete benchmark results available in [bloomfilter-benchmark](../bloomfilter-benchmark/) directory:
+### Quick Summary
 
-- **[vs Willf/Bloom](../bloomfilter-benchmark/WILLF_VS_SIMPLIFIED_COMPARISON.md)**: 3-4x faster, zero allocations
-- **[vs Thread-Safe Pool](../bloomfilter-benchmark/SIMPLIFIED_VS_THREADSAFE_COMPARISON.md)**: 15-26x faster, 99.93% less memory
-- **[Complete Comparison](../bloomfilter-benchmark/COMPLETE_COMPARISON_SUMMARY.md)**: All three implementations
+| Implementation | Add (ns/op) | Contains (ns/op) | Memory (B/op) | Speedup |
+|----------------|-------------|------------------|---------------|---------|
+| **Simplified Atomic** | 26.02 | 23.41 | 0 | Baseline |
+| Thread-Safe Pool | ~400 | ~600 | 17 | 15-26x slower |
+| willf/bloom | 85.64 | 90.34 | 97 | 3-4x slower |
+
+### Detailed Comparisons
+
+**Note:** Complete benchmark results and detailed comparisons are available in a separate benchmarking repository. The performance numbers shown above are from comprehensive testing on Intel i9-13980HX.
+
+**Key Findings:**
+- **vs willf/bloom**: 3-4x faster with zero allocations (vs 97 B/op)
+- **vs Thread-Safe Pool (v0.3.0)**: 15-26x faster with 99.93% less memory usage
+- **Throughput**: 18.6M insertions/sec, 35.8M lookups/sec
+- **SIMD Acceleration**: 2-4x speedup for bulk operations (PopCount, Union, Intersection)
 
 ## Contributing
 
