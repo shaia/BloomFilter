@@ -30,8 +30,13 @@ A high-performance, cache-line optimized bloom filter implementation in Go with 
 
 - **Insertions**: 18.6 million operations/second
 - **Lookups**: 35.8 million operations/second
-- **Memory**: Zero allocations on hot path
+- **Memory**: Zero allocations on hot path (for hashCount ≤ 16)*
 - **False Positive Rate**: 1.02% (target: 1.0%)
+
+**\*Memory Allocation Details:**
+- **Stack-allocated** (0 B/op): FPR ≥ 0.001 (hashCount ≤ 16) - covers 99% of use cases
+- **Heap-allocated**: Only for extremely low FPR < 0.001 (e.g., 0.0000001) requiring hashCount > 16
+- Common configurations (FPR: 0.01, 0.001, 0.0001) all use stack buffers
 
 ### SIMD Speedup
 
@@ -66,10 +71,11 @@ This library is **optimized for high-performance applications** where speed and 
 - **Data processing**: Any size from small (10K) to large (100M+) elements
 
 **Performance Characteristics:**
-- Small filters (10K-100K): 26 ns/op, zero allocations
-- Large filters (1M-10M+): 26 ns/op, zero allocations
+- Small filters (10K-100K): 26 ns/op, zero allocations (typical FPR)
+- Large filters (1M-10M+): 26 ns/op, zero allocations (typical FPR)
 - SIMD operations: 2-4x faster for bulk operations (Union, Intersection, PopCount)
 - Thread-safe: No lock contention, scales with CPU cores
+- Typical FPR (0.01, 0.001, 0.0001) use stack buffers, extremely low FPR (<0.001) may heap allocate
 
 ## Quick Start
 
@@ -85,12 +91,12 @@ func main() {
     // Create a bloom filter for 1M elements with 1% false positive rate
     filter := bf.NewCacheOptimizedBloomFilter(1000000, 0.01)
 
-    // Add elements (thread-safe, zero allocations)
+    // Add elements (thread-safe, zero allocations for typical FPR ≥ 0.001)
     filter.AddString("example")
     filter.AddUint64(42)
     filter.Add([]byte("custom data"))
 
-    // Check membership (thread-safe, zero allocations)
+    // Check membership (thread-safe, zero allocations for typical FPR ≥ 0.001)
     fmt.Println(filter.ContainsString("example"))  // true
     fmt.Println(filter.ContainsString("missing"))  // false (probably)
     fmt.Println(filter.ContainsUint64(42))         // true

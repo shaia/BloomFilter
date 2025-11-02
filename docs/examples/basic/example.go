@@ -57,13 +57,14 @@ func main() {
 	fmt.Printf("Cache lines used: %d\n", stats.CacheLineCount)
 	fmt.Printf("SIMD optimized: %t\n", stats.SIMDEnabled)
 
-	// Example 2: Multiple operations (zero allocations)
+	// Example 2: Multiple operations (zero allocations for typical FPR)
 	fmt.Println("\nExample 2: Multiple Operations")
 	fmt.Println("-------------------------------")
 
 	filter2 := bf.NewCacheOptimizedBloomFilter(100000, 0.01)
 
-	// Add multiple strings (zero allocations per operation)
+	// Add multiple strings (zero allocations when hashCount ≤ 16, which covers 99% of use cases)
+	// For very low FPR (e.g., 0.0000001) requiring hashCount > 16, heap allocation occurs
 	urls := []string{
 		"https://example.com/page1",
 		"https://example.com/page2",
@@ -73,7 +74,7 @@ func main() {
 		filter2.AddString(url)
 	}
 
-	// Add multiple uint64s (zero allocations per operation)
+	// Add multiple uint64s (zero allocations for typical configurations)
 	userIDs := []uint64{1001, 1002, 1003, 1004, 1005}
 	for _, id := range userIDs {
 		filter2.AddUint64(id)
