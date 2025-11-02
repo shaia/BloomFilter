@@ -11,7 +11,7 @@ import (
 
 // TestConcurrentReads tests thread-safe concurrent read operations
 func TestConcurrentReads(t *testing.T) {
-	// Thread-safety fixed with sync.Pool solution
+	// Thread-safety provided by atomic CAS operations
 
 	bf := bloomfilter.NewCacheOptimizedBloomFilter(100_000, 0.01)
 
@@ -80,7 +80,7 @@ func TestConcurrentReads(t *testing.T) {
 
 // TestConcurrentWrites tests thread-safe concurrent write operations
 func TestConcurrentWrites(t *testing.T) {
-	// Thread-safety fixed with sync.Pool solution
+	// Thread-safety provided by atomic CAS operations
 
 	bf := bloomfilter.NewCacheOptimizedBloomFilter(100_000, 0.01)
 
@@ -149,7 +149,7 @@ func TestConcurrentWrites(t *testing.T) {
 
 // TestMixedConcurrentOperations tests concurrent reads and writes
 func TestMixedConcurrentOperations(t *testing.T) {
-	// Thread-safety fixed with sync.Pool solution
+	// Thread-safety provided by atomic CAS operations
 
 	bf := bloomfilter.NewCacheOptimizedBloomFilter(100_000, 0.01)
 

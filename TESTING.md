@@ -12,7 +12,6 @@ BloomFilter/
 ├── bloomfilter_simd_test.go         # SIMD capability detection tests
 ├── bloomfilter_validation_test.go   # Input validation tests (32 sub-tests)
 └── tests/
-    ├── README.md                    # Tests directory documentation
     ├── TEST_COVERAGE_SUMMARY.md     # Comprehensive test coverage summary
     ├── benchmark/
     │   └── bloomfilter_benchmark_test.go  # Performance benchmarks
@@ -341,6 +340,6 @@ go tool cover -func=coverage.out
 ## Additional Resources
 
 - [scripts/BENCHMARK_WORKFLOW.md](scripts/BENCHMARK_WORKFLOW.md) - Automated benchmarking guide
-- [tests/README.md](tests/README.md) - Tests directory documentation
+- [tests/TEST_COVERAGE_SUMMARY.md](tests/TEST_COVERAGE_SUMMARY.md) - Comprehensive test coverage summary
 - [Go Testing Documentation](https://golang.org/pkg/testing/)
 - [Go Benchmark Guidelines](https://dave.cheney.net/2013/06/30/how-to-write-benchmarks-in-go)
