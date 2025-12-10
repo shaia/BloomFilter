@@ -8,7 +8,8 @@ import (
 )
 
 // Helper: Sequential Union implementation (bypassing the Parallel check)
-func (bf *CacheOptimizedBloomFilter) unionSequential(other *CacheOptimizedBloomFilter) {
+// Helper: Sequential Union implementation (bypassing the Parallel check)
+func unionSequential(bf, other *CacheOptimizedBloomFilter) {
 	totalBytes := int(bf.cacheLineCount * CacheLineSize)
 	bf.simdOps.VectorOr(
 		unsafe.Pointer(&bf.cacheLines[0]),
@@ -18,7 +19,7 @@ func (bf *CacheOptimizedBloomFilter) unionSequential(other *CacheOptimizedBloomF
 }
 
 // Helper: Sequential Add implementation
-func (bf *CacheOptimizedBloomFilter) addBatchSequential(data [][]byte) {
+func addBatchSequential(bf *CacheOptimizedBloomFilter, data [][]byte) {
 	for _, item := range data {
 		bf.Add(item)
 	}
@@ -40,18 +41,22 @@ func BenchmarkAddBatch_Comparison(b *testing.B) {
 	}
 
 	b.Run("Sequential_Loop", func(b *testing.B) {
-		bf := NewCacheOptimizedBloomFilter(size, 0.01)
-		b.ResetTimer()
+		b.StopTimer()
 		for i := 0; i < b.N; i++ {
-			bf.addBatchSequential(data)
+			bf := NewCacheOptimizedBloomFilter(size, 0.01)
+			b.StartTimer()
+			addBatchSequential(bf, data)
+			b.StopTimer()
 		}
 	})
 
 	b.Run("Parallel_AddBatch", func(b *testing.B) {
-		bf := NewCacheOptimizedBloomFilter(size, 0.01)
-		b.ResetTimer()
+		b.StopTimer()
 		for i := 0; i < b.N; i++ {
+			bf := NewCacheOptimizedBloomFilter(size, 0.01)
+			b.StartTimer()
 			bf.AddBatch(data)
+			b.StopTimer()
 		}
 	})
 }
@@ -113,18 +118,30 @@ func BenchmarkUnion_Comparison(b *testing.B) {
 	bf2.AddBatch(data2)
 
 	b.Run("Sequential_Union", func(b *testing.B) {
-		// Clone to prevent dirtying state if union modified anything (Union is idempotent-ish for bitwise OR)
-		// But repeating Union on same filter is fine, it just stays set.
-		b.ResetTimer()
+		b.StopTimer()
 		for i := 0; i < b.N; i++ {
-			bf1.unionSequential(bf2)
+			// Create a fresh copy of bf1 to avoid state accumulation
+			// We can't easily clone, so we just recreate it or copy the buffer.
+			// Recreating with AddBatch is slow. Copying memory is faster.
+			// Let's just create a new one and copy the cacheLines from the prepared bf1.
+			bfDest := NewCacheOptimizedBloomFilter(size, 0.01)
+			copy(bfDest.cacheLines, bf1.cacheLines)
+
+			b.StartTimer()
+			unionSequential(bfDest, bf2)
+			b.StopTimer()
 		}
 	})
 
 	b.Run("Parallel_Union", func(b *testing.B) {
-		b.ResetTimer()
+		b.StopTimer()
 		for i := 0; i < b.N; i++ {
-			bf1.Union(bf2)
+			bfDest := NewCacheOptimizedBloomFilter(size, 0.01)
+			copy(bfDest.cacheLines, bf1.cacheLines)
+
+			b.StartTimer()
+			bfDest.Union(bf2)
+			b.StopTimer()
 		}
 	})
 }

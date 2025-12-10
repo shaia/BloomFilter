@@ -32,7 +32,7 @@ func TestBatchOperations(t *testing.T) {
 	// We need enough items to force parallel path if we lowered the threshold,
 	// but here we are testing the logic.
 	// To actually force parallel path for Add/Check logic which uses CPU count,
-	// we relies on the implementation details (threshold is currently numCPU*100).
+	// we rely on the implementation details (threshold is currently numCPU*100).
 	// Let's create a larger dataset to be sure.
 
 	largeCount := 100000
@@ -147,27 +147,33 @@ func TestParallelSetOperations(t *testing.T) {
 }
 
 func BenchmarkAddBatch(b *testing.B) {
-	bf := NewCacheOptimizedBloomFilter(1000000, 0.01)
 	data := make([][]byte, 10000)
 	for i := 0; i < 10000; i++ {
 		data[i] = []byte(fmt.Sprintf("bench-%d", rand.Int()))
 	}
 	b.ResetTimer()
+	b.StopTimer()
 	for i := 0; i < b.N; i++ {
+		bf := NewCacheOptimizedBloomFilter(1000000, 0.01)
+		b.StartTimer()
 		bf.AddBatch(data)
+		b.StopTimer()
 	}
 }
 
 func BenchmarkSequentialAdd(b *testing.B) {
-	bf := NewCacheOptimizedBloomFilter(1000000, 0.01)
 	data := make([][]byte, 10000)
 	for i := 0; i < 10000; i++ {
 		data[i] = []byte(fmt.Sprintf("bench-%d", rand.Int()))
 	}
 	b.ResetTimer()
+	b.StopTimer()
 	for i := 0; i < b.N; i++ {
+		bf := NewCacheOptimizedBloomFilter(1000000, 0.01)
+		b.StartTimer()
 		for _, item := range data {
 			bf.Add(item)
 		}
+		b.StopTimer()
 	}
 }

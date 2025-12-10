@@ -108,6 +108,14 @@ func NewCacheOptimizedBloomFilter(expectedElements uint64, falsePositiveRate flo
 	return bf
 }
 
+// Clone creates a deep copy of the bloom filter
+func (bf *CacheOptimizedBloomFilter) Clone() *CacheOptimizedBloomFilter {
+	newBf := *bf
+	newBf.cacheLines = make([]CacheLine, len(bf.cacheLines))
+	copy(newBf.cacheLines, bf.cacheLines)
+	return &newBf
+}
+
 // Add adds an element with cache line optimization
 func (bf *CacheOptimizedBloomFilter) Add(data []byte) {
 	h1 := hash.Optimized1(data)
@@ -152,13 +160,24 @@ func (bf *CacheOptimizedBloomFilter) Contains(data []byte) bool {
 }
 
 // AddBatch adds multiple elements concurrently using available CPU cores.
+//
+// Thread Safety: This method is thread-safe and uses atomic operations (CAS) to set bits.
+// It can be safely called concurrently from multiple goroutines, although the internal
+// Parallelization itself spawns goroutines.
+//
+// Parallel Execution: Parallel processing is triggered only if the batch size exceeds
+// (runtime.NumCPU() * MinBatchSizePerCPU). For smaller batches, it falls back to
+// sequential addition to avoid the overhead of spawning goroutines.
+//
+// Performance: checking benchmarks, for large batches (e.g., 50k items), this method
+// can be 2x or more faster than a sequential loop, depending on the number of cores.
 func (bf *CacheOptimizedBloomFilter) AddBatch(data [][]byte) {
 	if len(data) == 0 {
 		return
 	}
 
 	numCPU := runtime.NumCPU()
-	if len(data) < numCPU*100 { // fallback for small batches
+	if len(data) < numCPU*MinBatchSizePerCPU { // fallback for small batches
 		for _, item := range data {
 			bf.Add(item)
 		}
@@ -212,7 +231,18 @@ func (bf *CacheOptimizedBloomFilter) AddBatch(data [][]byte) {
 	wg.Wait()
 }
 
-// ContainsBatch checks multiple elements concurrently
+// ContainsBatch checks multiple elements concurrently.
+//
+// Returns: A slice of booleans where each boolean corresponds to the element at the same index
+// in the input slice. true indicates the element might be in the set, false indicates it definitely is not.
+//
+// Thread Safety: This method is thread-safe (read-only operations on the bitset).
+//
+// Parallel Execution: Parallel processing is triggered only if the batch size exceeds
+// (runtime.NumCPU() * MinBatchSizePerCPU). For smaller batches, it falls back to
+// sequential checks.
+//
+// Performance: Optimizes throughput for large batches by utilizing multiple cores.
 func (bf *CacheOptimizedBloomFilter) ContainsBatch(data [][]byte) []bool {
 	if len(data) == 0 {
 		return nil
@@ -221,7 +251,7 @@ func (bf *CacheOptimizedBloomFilter) ContainsBatch(data [][]byte) []bool {
 	results := make([]bool, len(data))
 	numCPU := runtime.NumCPU()
 
-	if len(data) < numCPU*100 { // fallback for small batches
+	if len(data) < numCPU*MinBatchSizePerCPU { // fallback for small batches
 		for i, item := range data {
 			results[i] = bf.Contains(item)
 		}
@@ -540,8 +570,13 @@ const (
 
 	// ParallelThreshold defines the minimum number of cache lines to trigger parallel processing
 	// for bulk operations.
-	// 4096 cache lines * 64 bytes = 256KB
+	// 4096 cache lines * 64 bytes = 262,144 bytes = 256 KiB
 	ParallelThreshold = 4096
+
+	// MinBatchSizePerCPU defines the minimum number of items per CPU core
+	// required to trigger parallel processing in batch operations.
+	// This avoids overhead of starting goroutines for small batches.
+	MinBatchSizePerCPU = 100
 )
 
 // CacheLine represents a single 64-byte cache line containing 8 uint64 words
