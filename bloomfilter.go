@@ -3,6 +3,8 @@ package bloomfilter
 import (
 	"fmt"
 	"math"
+	"runtime"
+	"sync"
 	"sync/atomic"
 	"unsafe"
 
@@ -149,6 +151,129 @@ func (bf *CacheOptimizedBloomFilter) Contains(data []byte) bool {
 	return bf.checkBitsAtomic(positions)
 }
 
+// AddBatch adds multiple elements concurrently using available CPU cores.
+func (bf *CacheOptimizedBloomFilter) AddBatch(data [][]byte) {
+	if len(data) == 0 {
+		return
+	}
+
+	numCPU := runtime.NumCPU()
+	if len(data) < numCPU*100 { // fallback for small batches
+		for _, item := range data {
+			bf.Add(item)
+		}
+		return
+	}
+
+	var wg sync.WaitGroup
+	chunkSize := (len(data) + numCPU - 1) / numCPU
+
+	for i := 0; i < numCPU; i++ {
+		start := i * chunkSize
+		end := start + chunkSize
+		if start >= len(data) {
+			break
+		}
+		if end > len(data) {
+			end = len(data)
+		}
+
+		wg.Add(1)
+		go func(items [][]byte) {
+			defer wg.Done()
+
+			// Thread-local buffers to avoid allocation in loop
+			// We can't reuse bf.Add because it allocates internally
+			// So we duplicate the add logic here for performance
+
+			hCount := bf.hashCount
+			bitCount := bf.bitCount
+			var stackBuf [16]uint64
+			var positions []uint64
+
+			if hCount <= 16 {
+				positions = stackBuf[:hCount]
+			} else {
+				positions = make([]uint64, hCount)
+			}
+
+			for _, item := range items {
+				h1 := hash.Optimized1(item)
+				h2 := hash.Optimized2(item)
+
+				for j := uint32(0); j < hCount; j++ {
+					positions[j] = (h1 + uint64(j)*h2) % bitCount
+				}
+
+				bf.setBitsAtomic(positions)
+			}
+		}(data[start:end])
+	}
+	wg.Wait()
+}
+
+// ContainsBatch checks multiple elements concurrently
+func (bf *CacheOptimizedBloomFilter) ContainsBatch(data [][]byte) []bool {
+	if len(data) == 0 {
+		return nil
+	}
+
+	results := make([]bool, len(data))
+	numCPU := runtime.NumCPU()
+
+	if len(data) < numCPU*100 { // fallback for small batches
+		for i, item := range data {
+			results[i] = bf.Contains(item)
+		}
+		return results
+	}
+
+	var wg sync.WaitGroup
+	chunkSize := (len(data) + numCPU - 1) / numCPU
+
+	for i := 0; i < numCPU; i++ {
+		start := i * chunkSize
+		end := start + chunkSize
+		if start >= len(data) {
+			break
+		}
+		if end > len(data) {
+			end = len(data)
+		}
+
+		wg.Add(1)
+		go func(chunkIdx int, items [][]byte) {
+			defer wg.Done()
+
+			hCount := bf.hashCount
+			bitCount := bf.bitCount
+			var stackBuf [16]uint64
+			var positions []uint64
+
+			if hCount <= 16 {
+				positions = stackBuf[:hCount]
+			} else {
+				positions = make([]uint64, hCount)
+			}
+
+			for j, item := range items {
+				h1 := hash.Optimized1(item)
+				h2 := hash.Optimized2(item)
+
+				for k := uint32(0); k < hCount; k++ {
+					positions[k] = (h1 + uint64(k)*h2) % bitCount
+				}
+
+				// Calculate global index for results
+				results[chunkIdx+j] = bf.checkBitsAtomic(positions)
+			}
+		}(start, data[start:end])
+	}
+	wg.Wait()
+
+	return results
+}
+
 // AddString adds a string element to the bloom filter
 func (bf *CacheOptimizedBloomFilter) AddString(s string) {
 	data := *(*[]byte)(unsafe.Pointer(&struct {
@@ -202,6 +327,37 @@ func (bf *CacheOptimizedBloomFilter) Union(other *CacheOptimizedBloomFilter) err
 		return nil
 	}
 
+	// Parallel execution for large filters
+	if bf.cacheLineCount >= ParallelThreshold {
+		numCPU := runtime.NumCPU()
+		var wg sync.WaitGroup
+		chunkSize := int(bf.cacheLineCount+uint64(numCPU)-1) / numCPU
+
+		for i := 0; i < numCPU; i++ {
+			start := i * chunkSize
+			end := start + chunkSize
+			if uint64(start) >= bf.cacheLineCount {
+				break
+			}
+			if uint64(end) > bf.cacheLineCount {
+				end = int(bf.cacheLineCount)
+			}
+
+			wg.Add(1)
+			go func(startIdx, endIdx int) {
+				defer wg.Done()
+				chunkBytes := (endIdx - startIdx) * CacheLineSize
+				bf.simdOps.VectorOr(
+					unsafe.Pointer(&bf.cacheLines[startIdx]),
+					unsafe.Pointer(&other.cacheLines[startIdx]),
+					chunkBytes,
+				)
+			}(start, end)
+		}
+		wg.Wait()
+		return nil
+	}
+
 	// Calculate total data size in bytes
 	totalBytes := int(bf.cacheLineCount * CacheLineSize)
 
@@ -225,6 +381,37 @@ func (bf *CacheOptimizedBloomFilter) Intersection(other *CacheOptimizedBloomFilt
 		return nil
 	}
 
+	// Parallel execution for large filters
+	if bf.cacheLineCount >= ParallelThreshold {
+		numCPU := runtime.NumCPU()
+		var wg sync.WaitGroup
+		chunkSize := int(bf.cacheLineCount+uint64(numCPU)-1) / numCPU
+
+		for i := 0; i < numCPU; i++ {
+			start := i * chunkSize
+			end := start + chunkSize
+			if uint64(start) >= bf.cacheLineCount {
+				break
+			}
+			if uint64(end) > bf.cacheLineCount {
+				end = int(bf.cacheLineCount)
+			}
+
+			wg.Add(1)
+			go func(startIdx, endIdx int) {
+				defer wg.Done()
+				chunkBytes := (endIdx - startIdx) * CacheLineSize
+				bf.simdOps.VectorAnd(
+					unsafe.Pointer(&bf.cacheLines[startIdx]),
+					unsafe.Pointer(&other.cacheLines[startIdx]),
+					chunkBytes,
+				)
+			}(start, end)
+		}
+		wg.Wait()
+		return nil
+	}
+
 	// Calculate total data size in bytes
 	totalBytes := int(bf.cacheLineCount * CacheLineSize)
 
@@ -242,6 +429,35 @@ func (bf *CacheOptimizedBloomFilter) Intersection(other *CacheOptimizedBloomFilt
 func (bf *CacheOptimizedBloomFilter) PopCount() uint64 {
 	if bf.cacheLineCount == 0 {
 		return 0
+	}
+
+	// Parallel execution for large filters
+	if bf.cacheLineCount >= ParallelThreshold {
+		numCPU := runtime.NumCPU()
+		var wg sync.WaitGroup
+		var totalCount uint64
+		chunkSize := int(bf.cacheLineCount+uint64(numCPU)-1) / numCPU
+
+		for i := 0; i < numCPU; i++ {
+			start := i * chunkSize
+			end := start + chunkSize
+			if uint64(start) >= bf.cacheLineCount {
+				break
+			}
+			if uint64(end) > bf.cacheLineCount {
+				end = int(bf.cacheLineCount)
+			}
+
+			wg.Add(1)
+			go func(startIdx, endIdx int) {
+				defer wg.Done()
+				chunkBytes := (endIdx - startIdx) * CacheLineSize
+				c := bf.simdOps.PopCount(unsafe.Pointer(&bf.cacheLines[startIdx]), chunkBytes)
+				atomic.AddUint64(&totalCount, uint64(c))
+			}(start, end)
+		}
+		wg.Wait()
+		return totalCount
 	}
 
 	// Calculate total data size in bytes
@@ -321,6 +537,11 @@ const (
 	// Maps: >10K cache lines = scalable for large filters (up to billions of elements)
 	// Memory overhead: Array mode ~240KB fixed, Map mode grows dynamically
 	ArrayModeThreshold = 10000
+
+	// ParallelThreshold defines the minimum number of cache lines to trigger parallel processing
+	// for bulk operations.
+	// 4096 cache lines * 64 bytes = 256KB
+	ParallelThreshold = 4096
 )
 
 // CacheLine represents a single 64-byte cache line containing 8 uint64 words
