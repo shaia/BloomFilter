@@ -152,12 +152,11 @@ func BenchmarkAddBatch(b *testing.B) {
 		data[i] = []byte(fmt.Sprintf("bench-%d", rand.Int()))
 	}
 	b.ResetTimer()
-	b.StopTimer()
 	for i := 0; i < b.N; i++ {
+		b.StopTimer()
 		bf := NewCacheOptimizedBloomFilter(1000000, 0.01)
 		b.StartTimer()
 		bf.AddBatch(data)
-		b.StopTimer()
 	}
 }
 
@@ -167,13 +166,12 @@ func BenchmarkSequentialAdd(b *testing.B) {
 		data[i] = []byte(fmt.Sprintf("bench-%d", rand.Int()))
 	}
 	b.ResetTimer()
-	b.StopTimer()
 	for i := 0; i < b.N; i++ {
+		b.StopTimer()
 		bf := NewCacheOptimizedBloomFilter(1000000, 0.01)
 		b.StartTimer()
 		for _, item := range data {
 			bf.Add(item)
 		}
-		b.StopTimer()
 	}
 }

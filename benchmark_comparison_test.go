@@ -41,22 +41,20 @@ func BenchmarkAddBatch_Comparison(b *testing.B) {
 	}
 
 	b.Run("Sequential_Loop", func(b *testing.B) {
-		b.StopTimer()
 		for i := 0; i < b.N; i++ {
+			b.StopTimer()
 			bf := NewCacheOptimizedBloomFilter(size, 0.01)
 			b.StartTimer()
 			addBatchSequential(bf, data)
-			b.StopTimer()
 		}
 	})
 
 	b.Run("Parallel_AddBatch", func(b *testing.B) {
-		b.StopTimer()
 		for i := 0; i < b.N; i++ {
+			b.StopTimer()
 			bf := NewCacheOptimizedBloomFilter(size, 0.01)
 			b.StartTimer()
 			bf.AddBatch(data)
-			b.StopTimer()
 		}
 	})
 }
