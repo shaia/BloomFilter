@@ -3,6 +3,8 @@ package bloomfilter
 import (
 	"fmt"
 	"math"
+	"runtime"
+	"sync"
 	"sync/atomic"
 	"unsafe"
 
@@ -106,11 +108,16 @@ func NewCacheOptimizedBloomFilter(expectedElements uint64, falsePositiveRate flo
 	return bf
 }
 
+// Clone creates a deep copy of the bloom filter
+func (bf *CacheOptimizedBloomFilter) Clone() *CacheOptimizedBloomFilter {
+	newBf := *bf
+	newBf.cacheLines = make([]CacheLine, len(bf.cacheLines))
+	copy(newBf.cacheLines, bf.cacheLines)
+	return &newBf
+}
+
 // Add adds an element with cache line optimization
 func (bf *CacheOptimizedBloomFilter) Add(data []byte) {
-	h1 := hash.Optimized1(data)
-	h2 := hash.Optimized2(data)
-
 	// Stack buffer for typical filters
 	var stackBuf [16]uint64
 	var positions []uint64
@@ -121,9 +128,7 @@ func (bf *CacheOptimizedBloomFilter) Add(data []byte) {
 	}
 
 	// Generate positions
-	for i := uint32(0); i < bf.hashCount; i++ {
-		positions[i] = (h1 + uint64(i)*h2) % bf.bitCount
-	}
+	bf.calculatePositions(data, positions)
 
 	// Set bits atomically
 	bf.setBitsAtomic(positions)
@@ -131,9 +136,6 @@ func (bf *CacheOptimizedBloomFilter) Add(data []byte) {
 
 // Contains checks membership with cache line optimization
 func (bf *CacheOptimizedBloomFilter) Contains(data []byte) bool {
-	h1 := hash.Optimized1(data)
-	h2 := hash.Optimized2(data)
-
 	var stackBuf [16]uint64
 	var positions []uint64
 	if bf.hashCount <= 16 {
@@ -142,11 +144,110 @@ func (bf *CacheOptimizedBloomFilter) Contains(data []byte) bool {
 		positions = make([]uint64, bf.hashCount)
 	}
 
-	for i := uint32(0); i < bf.hashCount; i++ {
-		positions[i] = (h1 + uint64(i)*h2) % bf.bitCount
-	}
+	bf.calculatePositions(data, positions)
 
 	return bf.checkBitsAtomic(positions)
+}
+
+// AddBatch adds multiple elements concurrently using available CPU cores.
+//
+// Thread Safety: This method is thread-safe and uses atomic operations (CAS) to set bits.
+// It can be safely called concurrently from multiple goroutines, although the internal
+// Parallelization itself spawns goroutines.
+//
+// Parallel Execution: Parallel processing is triggered only if the batch size exceeds
+// (runtime.NumCPU() * MinBatchSizePerCPU). For smaller batches, it falls back to
+// sequential addition to avoid the overhead of spawning goroutines.
+//
+// Performance: checking benchmarks, for large batches (e.g., 50k items), this method
+// can be 2x or more faster than a sequential loop, depending on the number of cores.
+func (bf *CacheOptimizedBloomFilter) AddBatch(data [][]byte) {
+	if len(data) == 0 {
+		return
+	}
+
+	numCPU := runtime.NumCPU()
+	if len(data) < numCPU*MinBatchSizePerCPU { // fallback for small batches
+		for _, item := range data {
+			bf.Add(item)
+		}
+		return
+	}
+
+	bf.executeParallel(uint64(len(data)), func(start, end uint64) {
+		items := data[start:end]
+
+		// Thread-local buffers to avoid allocation in loop
+		// We can't reuse bf.Add because it allocates internally
+		// So we duplicate the add logic here for performance
+
+		hCount := bf.hashCount
+		var stackBuf [16]uint64
+		var positions []uint64
+
+		if hCount <= 16 {
+			positions = stackBuf[:hCount]
+		} else {
+			positions = make([]uint64, hCount)
+		}
+
+		for _, item := range items {
+			bf.calculatePositions(item, positions)
+			bf.setBitsAtomic(positions)
+		}
+	})
+}
+
+// ContainsBatch checks multiple elements concurrently.
+//
+// Returns: A slice of booleans where each boolean corresponds to the element at the same index
+// in the input slice. true indicates the element might be in the set, false indicates it definitely is not.
+//
+// Thread Safety: This method is thread-safe (read-only operations on the bitset).
+//
+// Parallel Execution: Parallel processing is triggered only if the batch size exceeds
+// (runtime.NumCPU() * MinBatchSizePerCPU). For smaller batches, it falls back to
+// sequential checks.
+//
+// Performance: Optimizes throughput for large batches by utilizing multiple cores.
+func (bf *CacheOptimizedBloomFilter) ContainsBatch(data [][]byte) []bool {
+	if len(data) == 0 {
+		return nil
+	}
+
+	results := make([]bool, len(data))
+	numCPU := runtime.NumCPU()
+
+	if len(data) < numCPU*MinBatchSizePerCPU { // fallback for small batches
+		for i, item := range data {
+			results[i] = bf.Contains(item)
+		}
+		return results
+	}
+
+	bf.executeParallel(uint64(len(data)), func(start, end uint64) {
+		chunkIdx := int(start)
+		items := data[start:end]
+
+		hCount := bf.hashCount
+		var stackBuf [16]uint64
+		var positions []uint64
+
+		if hCount <= 16 {
+			positions = stackBuf[:hCount]
+		} else {
+			positions = make([]uint64, hCount)
+		}
+
+		for j, item := range items {
+			bf.calculatePositions(item, positions)
+
+			// Calculate global index for results
+			results[chunkIdx+j] = bf.checkBitsAtomic(positions)
+		}
+	})
+
+	return results
 }
 
 // AddString adds a string element to the bloom filter
@@ -202,6 +303,21 @@ func (bf *CacheOptimizedBloomFilter) Union(other *CacheOptimizedBloomFilter) err
 		return nil
 	}
 
+	// Parallel execution for large filters
+	if bf.cacheLineCount >= ParallelThreshold {
+		bf.executeParallel(bf.cacheLineCount, func(start, end uint64) {
+			startIdx := int(start)
+			endIdx := int(end)
+			chunkBytes := (endIdx - startIdx) * CacheLineSize
+			bf.simdOps.VectorOr(
+				unsafe.Pointer(&bf.cacheLines[startIdx]),
+				unsafe.Pointer(&other.cacheLines[startIdx]),
+				chunkBytes,
+			)
+		})
+		return nil
+	}
+
 	// Calculate total data size in bytes
 	totalBytes := int(bf.cacheLineCount * CacheLineSize)
 
@@ -225,6 +341,21 @@ func (bf *CacheOptimizedBloomFilter) Intersection(other *CacheOptimizedBloomFilt
 		return nil
 	}
 
+	// Parallel execution for large filters
+	if bf.cacheLineCount >= ParallelThreshold {
+		bf.executeParallel(bf.cacheLineCount, func(start, end uint64) {
+			startIdx := int(start)
+			endIdx := int(end)
+			chunkBytes := (endIdx - startIdx) * CacheLineSize
+			bf.simdOps.VectorAnd(
+				unsafe.Pointer(&bf.cacheLines[startIdx]),
+				unsafe.Pointer(&other.cacheLines[startIdx]),
+				chunkBytes,
+			)
+		})
+		return nil
+	}
+
 	// Calculate total data size in bytes
 	totalBytes := int(bf.cacheLineCount * CacheLineSize)
 
@@ -242,6 +373,19 @@ func (bf *CacheOptimizedBloomFilter) Intersection(other *CacheOptimizedBloomFilt
 func (bf *CacheOptimizedBloomFilter) PopCount() uint64 {
 	if bf.cacheLineCount == 0 {
 		return 0
+	}
+
+	// Parallel execution for large filters
+	if bf.cacheLineCount >= ParallelThreshold {
+		var totalCount uint64
+		bf.executeParallel(bf.cacheLineCount, func(start, end uint64) {
+			startIdx := int(start)
+			endIdx := int(end)
+			chunkBytes := (endIdx - startIdx) * CacheLineSize
+			c := bf.simdOps.PopCount(unsafe.Pointer(&bf.cacheLines[startIdx]), chunkBytes)
+			atomic.AddUint64(&totalCount, uint64(c))
+		})
+		return totalCount
 	}
 
 	// Calculate total data size in bytes
@@ -321,6 +465,16 @@ const (
 	// Maps: >10K cache lines = scalable for large filters (up to billions of elements)
 	// Memory overhead: Array mode ~240KB fixed, Map mode grows dynamically
 	ArrayModeThreshold = 10000
+
+	// ParallelThreshold defines the minimum number of cache lines to trigger parallel processing
+	// for bulk operations.
+	// 4096 cache lines * 64 bytes = 262,144 bytes = 256 KiB
+	ParallelThreshold = 4096
+
+	// MinBatchSizePerCPU defines the minimum number of items per CPU core
+	// required to trigger parallel processing in batch operations.
+	// This avoids overhead of starting goroutines for small batches.
+	MinBatchSizePerCPU = 100
 )
 
 // CacheLine represents a single 64-byte cache line containing 8 uint64 words
@@ -394,4 +548,42 @@ func (bf *CacheOptimizedBloomFilter) checkBitsAtomic(positions []uint64) bool {
 		}
 	}
 	return true
+}
+
+// executeParallel executes a task concurrently across multiple goroutines.
+// It divides the work into chunks based on the number of available CPUs.
+func (bf *CacheOptimizedBloomFilter) executeParallel(totalItems uint64, task func(start, end uint64)) {
+	numCPU := runtime.NumCPU()
+	var wg sync.WaitGroup
+	chunkSize := (totalItems + uint64(numCPU) - 1) / uint64(numCPU)
+
+	for i := 0; i < numCPU; i++ {
+		start := uint64(i) * chunkSize
+		end := start + chunkSize
+		if start >= totalItems {
+			break
+		}
+		if end > totalItems {
+			end = totalItems
+		}
+
+		wg.Add(1)
+		go func(s, e uint64) {
+			defer wg.Done()
+			task(s, e)
+		}(start, end)
+	}
+	wg.Wait()
+}
+
+// calculatePositions computes the bit positions for a given item
+func (bf *CacheOptimizedBloomFilter) calculatePositions(data []byte, positions []uint64) {
+	h1 := hash.Optimized1(data)
+	h2 := hash.Optimized2(data)
+	bitCount := bf.bitCount
+	hCount := bf.hashCount
+
+	for i := uint32(0); i < hCount; i++ {
+		positions[i] = (h1 + uint64(i)*h2) % bitCount
+	}
 }
