@@ -121,11 +121,7 @@ func BenchmarkUnion_Comparison(b *testing.B) {
 		b.StopTimer()
 		for i := 0; i < b.N; i++ {
 			// Create a fresh copy of bf1 to avoid state accumulation
-			// We can't easily clone, so we just recreate it or copy the buffer.
-			// Recreating with AddBatch is slow. Copying memory is faster.
-			// Let's just create a new one and copy the cacheLines from the prepared bf1.
-			bfDest := NewCacheOptimizedBloomFilter(size, 0.01)
-			copy(bfDest.cacheLines, bf1.cacheLines)
+			bfDest := bf1.Clone()
 
 			b.StartTimer()
 			unionSequential(bfDest, bf2)
@@ -136,8 +132,7 @@ func BenchmarkUnion_Comparison(b *testing.B) {
 	b.Run("Parallel_Union", func(b *testing.B) {
 		b.StopTimer()
 		for i := 0; i < b.N; i++ {
-			bfDest := NewCacheOptimizedBloomFilter(size, 0.01)
-			copy(bfDest.cacheLines, bf1.cacheLines)
+			bfDest := bf1.Clone()
 
 			b.StartTimer()
 			bfDest.Union(bf2)
